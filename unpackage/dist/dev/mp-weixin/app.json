@@ -1,0 +1,61 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/home/home",
+    "pages/class-select/class-select",
+    "pages/class-detail/class-detail",
+    "pages/exam-setup/exam-setup",
+    "pages/exam-session/exam-session",
+    "pages/exam-active/exam-active",
+    "pages/lesson-list/lesson-list",
+    "pages/me/me",
+    "pages/my-courses/my-courses",
+    "pages/course-detail/course-detail",
+    "pages/lesson-create/lesson-create",
+    "pages/training-plan-select/training-plan-select",
+    "pages/screen-control/screen-control",
+    "pages/training-plan/training-plan",
+    "pages/training-plan-arrange/training-plan-arrange",
+    "pages/plan-project-edit/plan-project-edit",
+    "pages/material-manage/material-manage"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "羽毛球教学",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#07c160",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/my-courses/my-courses",
+        "text": "我的课程",
+        "iconPath": "static/tabbar/class.png",
+        "selectedIconPath": "static/tabbar/class-active.png"
+      },
+      {
+        "pagePath": "pages/training-plan/training-plan",
+        "text": "训练计划",
+        "iconPath": "static/tabbar/list.png",
+        "selectedIconPath": "static/tabbar/list-active.png"
+      },
+      {
+        "pagePath": "pages/me/me",
+        "text": "我的",
+        "iconPath": "static/tabbar/me.png",
+        "selectedIconPath": "static/tabbar/me-active.png"
+      }
+    ]
+  },
+  "usingComponents": {}
+}

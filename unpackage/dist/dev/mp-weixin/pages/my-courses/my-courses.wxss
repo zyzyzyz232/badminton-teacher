@@ -1,0 +1,240 @@
+/**
+ * 这里是uni-app内置的常用样式变量
+ *
+ * uni-app 官方扩展插件及插件市场（https://ext.dcloud.net.cn）上很多三方插件均使用了这些样式变量
+ * 如果你是插件开发者，建议你使用scss预处理，并在插件代码中直接使用这些变量（无需 import 这个文件），方便用户通过搭积木的方式开发整体风格一致的App
+ *
+ */
+/**
+ * 如果你是App开发者（插件使用者），你可以通过修改这些变量来定制自己的插件主题，实现自定义主题功能
+ *
+ * 如果你的项目同样使用了scss预处理，你也可以直接在你的 scss 代码中使用如下变量，同时无需 import 这个文件
+ */
+/* 颜色变量 */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+.page-container.data-v-b97ca3f0 {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
+/* 顶部栏 */
+.header-bar.data-v-b97ca3f0 {
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  padding: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header-title.data-v-b97ca3f0 {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+/* 内容区域 */
+.content-area.data-v-b97ca3f0 {
+  padding: 30rpx;
+}
+
+/* 课程卡片 */
+.course-list .course-card.data-v-b97ca3f0 {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.course-list .course-card.data-v-b97ca3f0:active {
+  opacity: 0.9;
+}
+.course-list .course-main.data-v-b97ca3f0 {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 12rpx;
+}
+.course-list .course-main .course-name.data-v-b97ca3f0 {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-right: 20rpx;
+}
+.course-list .course-main .class-count.data-v-b97ca3f0 {
+  font-size: 24rpx;
+  color: #999;
+}
+.course-list .course-meta .meta-item.data-v-b97ca3f0 {
+  font-size: 26rpx;
+  color: #666;
+}
+.course-list .course-arrow.data-v-b97ca3f0 {
+  position: absolute;
+  right: 30rpx;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.course-list .course-arrow .arrow-icon.data-v-b97ca3f0 {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+/* 空状态 */
+.empty-state.data-v-b97ca3f0 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 150rpx 40rpx;
+}
+.empty-state .empty-icon.data-v-b97ca3f0 {
+  font-size: 100rpx;
+  margin-bottom: 30rpx;
+}
+.empty-state .empty-text.data-v-b97ca3f0 {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+.empty-state .empty-subtitle.data-v-b97ca3f0 {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 创建按钮 */
+.fab-btn.data-v-b97ca3f0 {
+  position: fixed;
+  right: 40rpx;
+  bottom: 160rpx;
+  width: 100rpx;
+  height: 100rpx;
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 30rpx rgba(7, 193, 96, 0.4);
+}
+.fab-btn.data-v-b97ca3f0:active {
+  opacity: 0.9;
+  transform: scale(0.95);
+}
+.fab-btn .fab-icon.data-v-b97ca3f0 {
+  font-size: 48rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* 弹窗 */
+.modal-mask.data-v-b97ca3f0 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-content.data-v-b97ca3f0 {
+  background-color: #fff;
+  border-radius: 20rpx;
+  width: 80%;
+  max-width: 600rpx;
+}
+.modal-header.data-v-b97ca3f0 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.modal-header .modal-title.data-v-b97ca3f0 {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+}
+.modal-header .modal-close.data-v-b97ca3f0 {
+  font-size: 48rpx;
+  color: #999;
+  line-height: 1;
+}
+.modal-body.data-v-b97ca3f0 {
+  padding: 30rpx;
+}
+.modal-body .form-item.data-v-b97ca3f0 {
+  margin-bottom: 30rpx;
+}
+.modal-body .form-item.data-v-b97ca3f0:last-child {
+  margin-bottom: 0;
+}
+.modal-body .form-item .form-label.data-v-b97ca3f0 {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+.modal-body .form-item .form-input.data-v-b97ca3f0 {
+  height: 80rpx;
+  background-color: #f5f7fa;
+  border-radius: 10rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.modal-body .form-item .form-picker.data-v-b97ca3f0 {
+  height: 80rpx;
+  background-color: #f5f7fa;
+  border-radius: 10rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+  display: flex;
+  align-items: center;
+}
+.modal-body .form-item .form-picker.placeholder.data-v-b97ca3f0 {
+  color: #999;
+}
+.modal-footer.data-v-b97ca3f0 {
+  display: flex;
+  padding: 20rpx 30rpx 40rpx;
+  gap: 20rpx;
+}
+.modal-footer button.data-v-b97ca3f0 {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 10rpx;
+  font-size: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+.modal-footer button.data-v-b97ca3f0::after {
+  display: none;
+}
+.modal-footer button.data-v-b97ca3f0:active {
+  opacity: 0.9;
+}
+.modal-footer .btn-cancel.data-v-b97ca3f0 {
+  background-color: #f5f5f5;
+  color: #666;
+}
+.modal-footer .btn-confirm.data-v-b97ca3f0 {
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  color: #fff;
+}

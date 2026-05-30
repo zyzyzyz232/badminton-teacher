@@ -1,0 +1,185 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "登录注册"
+			}
+		},
+		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "羽毛球教学",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/class-select/class-select",
+			"style": {
+				"navigationBarTitleText": "选择班级",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/class-detail/class-detail",
+			"style": {
+				"navigationBarTitleText": "班级详情",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-setup/exam-setup",
+			"style": {
+				"navigationBarTitleText": "考核选项",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-session/exam-session",
+			"style": {
+				"navigationBarTitleText": "考核进行中",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-active/exam-active",
+			"style": {
+				"navigationBarTitleText": "考核识别",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/lesson-list/lesson-list",
+			"style": {
+				"navigationBarTitleText": "课堂列表",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/me/me",
+			"style": {
+				"navigationBarTitleText": "个人中心",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/my-courses/my-courses",
+			"style": {
+				"navigationBarTitleText": "我的课程",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/course-detail/course-detail",
+			"style": {
+				"navigationBarTitleText": "课程详情",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/lesson-create/lesson-create",
+			"style": {
+				"navigationBarTitleText": "创建课堂",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/training-plan-select/training-plan-select",
+			"style": {
+				"navigationBarTitleText": "选择训练计划",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/screen-control/screen-control",
+			"style": {
+				"navigationBarTitleText": "大屏遥控",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/training-plan/training-plan",
+			"style": {
+				"navigationBarTitleText": "训练计划",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/training-plan-arrange/training-plan-arrange",
+			"style": {
+				"navigationBarTitleText": "训练计划安排",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/plan-project-edit/plan-project-edit",
+			"style": {
+				"navigationBarTitleText": "编辑训练项目",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/material-manage/material-manage",
+			"style": {
+				"navigationBarTitleText": "资料管理",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "羽毛球教学",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#07c160",
+		"backgroundColor": "#ffffff",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/home/home",
+				"text": "首页",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-active.png"
+			},
+			{
+				"pagePath": "pages/my-courses/my-courses",
+				"text": "我的课程",
+				"iconPath": "static/tabbar/class.png",
+				"selectedIconPath": "static/tabbar/class-active.png"
+			},
+			{
+				"pagePath": "pages/training-plan/training-plan",
+				"text": "训练计划",
+				"iconPath": "static/tabbar/list.png",
+				"selectedIconPath": "static/tabbar/list-active.png"
+			},
+			{
+				"pagePath": "pages/me/me",
+				"text": "我的",
+				"iconPath": "static/tabbar/me.png",
+				"selectedIconPath": "static/tabbar/me-active.png"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}
