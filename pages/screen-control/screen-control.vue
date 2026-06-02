@@ -7,17 +7,57 @@
         <input v-model="relayWs" class="input" placeholder="ws://局域网IP:3456" />
       </view>
       <view class="field">
-        <text class="label">房间号</text>
-        <input v-model="roomId" class="input" placeholder="大屏上显示的房间号" />
+        <text class="label">房间号（4位数字）</text>
+        <input
+          v-model="roomId"
+          class="input code-input"
+          type="number"
+          maxlength="4"
+          placeholder="如 1234"
+          @blur="normalizeRoomFields"
+        />
       </view>
       <view class="field">
-        <text class="label">令牌</text>
-        <input v-model="token" class="input" placeholder="大屏上显示的令牌" />
+        <text class="label">令牌（4位数字）</text>
+        <input
+          v-model="token"
+          class="input code-input"
+          type="number"
+          maxlength="4"
+          placeholder="如 5678"
+          @blur="normalizeRoomFields"
+        />
       </view>
+      <button class="btn" @click="pasteJoinInfo">粘贴连接信息</button>
+      <text class="field-hint">在大屏点击「复制连接信息」，此处一键粘贴（均为4位数字）</text>
       <button class="btn primary" :disabled="connecting" @click="handleConnect">
         {{ socketJoined ? '已连接' : connecting ? '连接中…' : '连接' }}
       </button>
+      <button v-if="connecting || socketJoined" class="btn" @click="handleDisconnect">断开</button>
+      <view class="conn-badge" :class="phaseClass">{{ phaseLabel }}</view>
       <text v-if="statusLine" class="status">{{ statusLine }}</text>
+    </view>
+
+    <view class="card debug-card">
+      <view class="debug-head" @click="showDebug = !showDebug">
+        <text class="card-title">连接调试</text>
+        <text class="debug-toggle">{{ showDebug ? '收起' : '展开' }}</text>
+      </view>
+      <view v-if="showDebug" class="debug-body">
+        <text class="debug-tip">真机调试时 WS 地址请填电脑局域网 IP，不能用 127.0.0.1</text>
+        <view class="debug-actions">
+          <button class="btn small" @click="clearDebugLogs">清空日志</button>
+          <button class="btn small" :disabled="!socketJoined" @click="sendPingState">拉取状态</button>
+        </view>
+        <scroll-view scroll-y class="debug-log" :scroll-top="logScrollTop">
+          <view v-for="(row, i) in debugLogs" :key="i" class="log-row" :class="'log-' + row.level">
+            <text class="log-time">{{ row.time }}</text>
+            <text class="log-tag">{{ row.tag }}</text>
+            <text class="log-msg">{{ row.msg }}</text>
+          </view>
+          <text v-if="!debugLogs.length" class="log-empty">暂无日志，点击「连接」开始</text>
+        </scroll-view>
+      </view>
     </view>
 
     <view v-if="socketJoined" class="card">
@@ -63,7 +103,104 @@ const roomId = ref('')
 const token = ref('')
 const connecting = ref(false)
 const socketJoined = ref(false)
+const socketOpen = ref(false)
 const statusLine = ref('')
+const showDebug = ref(true)
+const debugLogs = ref([])
+const logScrollTop = ref(0)
+
+const connectionPhase = computed(() => {
+  if (socketJoined.value) return 'joined'
+  if (connecting.value && socketOpen.value) return 'open'
+  if (connecting.value) return 'connecting'
+  return 'idle'
+})
+
+const phaseLabel = computed(() => {
+  const map = {
+    idle: '未连接',
+    connecting: '握手中…',
+    open: '已握手，等待 joined',
+    joined: '已加入房间',
+  }
+  return map[connectionPhase.value] || '未知'
+})
+
+const phaseClass = computed(() => `phase-${connectionPhase.value}`)
+
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+function nowStr() {
+  const d = new Date()
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+}
+
+function pushLog(level, tag, msg, detail) {
+  const row = { level, tag, msg, time: nowStr() }
+  if (detail !== undefined) {
+    try {
+      row.msg += ` ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`
+    } catch {
+      row.msg += ' [detail]'
+    }
+  }
+  debugLogs.value.push(row)
+  if (debugLogs.value.length > 80) debugLogs.value.shift()
+  logScrollTop.value = debugLogs.value.length * 999
+  console.log(`[screen-control][${tag}]`, msg, detail ?? '')
+}
+
+function clearDebugLogs() {
+  debugLogs.value = []
+  logScrollTop.value = 0
+}
+
+const DIGITS4 = /^\d{4}$/
+
+function normalizeDigits4(value) {
+  return String(value ?? '').replace(/\D/g, '').slice(0, 4)
+}
+
+function normalizeRoomFields() {
+  roomId.value = normalizeDigits4(roomId.value)
+  token.value = normalizeDigits4(token.value)
+}
+
+function pasteJoinInfo() {
+  uni.getClipboardData({
+    success: (res) => {
+      const text = String(res.data || '').trim()
+      if (!text) {
+        uni.showToast({ title: '剪贴板为空', icon: 'none' })
+        return
+      }
+      const roomMatch = text.match(/房间号[:：]\s*(\d{4})/)
+      const tokenMatch = text.match(/令牌[:：]\s*(\d{4})/)
+      if (roomMatch && tokenMatch) {
+        roomId.value = roomMatch[1]
+        token.value = tokenMatch[1]
+      } else {
+        const digits = text.match(/\d{4}/g)
+        if (digits?.length >= 2) {
+          roomId.value = digits[0]
+          token.value = digits[1]
+        } else if (digits?.length === 1) {
+          roomId.value = digits[0]
+        } else {
+          uni.showToast({ title: '未找到4位数字', icon: 'none' })
+          return
+        }
+      }
+      normalizeRoomFields()
+      uni.showToast({ title: '已粘贴', icon: 'success' })
+    },
+    fail: () => {
+      uni.showToast({ title: '无法读取剪贴板', icon: 'none' })
+    },
+  })
+}
 
 const lessonId = ref(0)
 const planId = ref(0)
@@ -114,12 +251,18 @@ function mergePlanPayload(projects, materials) {
 }
 
 function sendRaw(obj) {
+  pushLog('out', 'SEND', obj.type || 'raw', obj)
   try {
     uni.sendSocketMessage({ data: JSON.stringify(obj) })
   } catch (e) {
     statusLine.value = '发送失败'
+    pushLog('error', 'SEND', '发送失败', e?.message || String(e))
     console.error(e)
   }
+}
+
+function sendPingState() {
+  pushLog('info', 'TEST', '等待服务端 state 广播（下发计划或操控后会收到）')
 }
 
 function sendCmd(name, payload) {
@@ -127,14 +270,18 @@ function sendCmd(name, payload) {
 }
 
 function onSocketMessageHandler(res) {
+  pushLog('in', 'RECV', 'raw', res.data)
   try {
     const msg = JSON.parse(res.data)
     if (msg.type === 'joined') {
       socketJoined.value = true
       connecting.value = false
       statusLine.value = '已加入房间'
+      pushLog('ok', 'JOINED', `roomId=${msg.roomId}`, msg)
       try {
         uni.setStorageSync('relayWs', relayWs.value.trim())
+        uni.setStorageSync('relayRoomId', roomId.value.trim())
+        uni.setStorageSync('relayToken', token.value.trim())
       } catch {
         /* noop */
       }
@@ -145,14 +292,28 @@ function onSocketMessageHandler(res) {
       planIds.value = msg.state.plan.map((p) => p.id)
       const idx = msg.state.plan.findIndex((p) => p.id === msg.state.currentItemId)
       if (idx >= 0) currentIndex.value = idx
+      pushLog('info', 'STATE', `plan=${msg.state.plan.length}项 paused=${msg.state.paused}`)
+      return
+    }
+    if (msg.type === 'state') {
+      pushLog('info', 'STATE', '状态更新', {
+        paused: msg.state?.paused,
+        currentItemId: msg.state?.currentItemId,
+      })
       return
     }
     if (msg.type === 'error') {
-      statusLine.value = msg.message || msg.code || '错误'
+      if (msg.code === 'unauthorized') {
+        statusLine.value = '房间号或令牌错误，请核对4位数字'
+      } else {
+        statusLine.value = msg.message || msg.code || '错误'
+      }
       connecting.value = false
+      pushLog('error', 'ERROR', msg.message || msg.code, msg)
     }
   } catch {
     statusLine.value = '消息解析失败'
+    pushLog('error', 'PARSE', '消息解析失败', res.data)
   }
 }
 
@@ -169,6 +330,8 @@ function clearSocketListeners() {
 
 function bindSocketListeners() {
   uni.onSocketOpen(() => {
+    socketOpen.value = true
+    pushLog('ok', 'OPEN', relayWs.value.trim())
     sendRaw({
       type: 'join',
       role: 'mobile',
@@ -177,29 +340,53 @@ function bindSocketListeners() {
     })
   })
   uni.onSocketMessage(onSocketMessageHandler)
-  uni.onSocketError(() => {
+  uni.onSocketError((err) => {
     statusLine.value = 'WebSocket 错误'
     connecting.value = false
+    socketOpen.value = false
+    pushLog('error', 'WS_ERR', 'WebSocket 错误', err?.errMsg || err)
   })
-  uni.onSocketClose(() => {
+  uni.onSocketClose((res) => {
     socketJoined.value = false
     connecting.value = false
+    socketOpen.value = false
     statusLine.value = '连接已关闭'
+    pushLog('warn', 'CLOSE', `code=${res?.code ?? '-'} reason=${res?.reason || '-'}`, res)
   })
+}
+
+function handleDisconnect() {
+  pushLog('info', 'DISCONNECT', '主动断开')
+  clearSocketListeners()
+  try {
+    uni.closeSocket()
+  } catch {
+    /* noop */
+  }
+  socketJoined.value = false
+  connecting.value = false
+  socketOpen.value = false
+  statusLine.value = '已断开'
 }
 
 function handleConnect() {
   if (socketJoined.value) return
+  normalizeRoomFields()
   if (!relayWs.value.trim()) {
     uni.showToast({ title: '请填写 WS 地址', icon: 'none' })
     return
   }
-  if (!roomId.value.trim() || !token.value.trim()) {
-    uni.showToast({ title: '请填写房间号与令牌', icon: 'none' })
+  if (!DIGITS4.test(roomId.value) || !DIGITS4.test(token.value)) {
+    uni.showToast({ title: '房间号与令牌均为4位数字', icon: 'none' })
     return
   }
   statusLine.value = ''
   connecting.value = true
+  socketOpen.value = false
+  pushLog('info', 'CONNECT', relayWs.value.trim(), {
+    roomId: roomId.value,
+    token: token.value,
+  })
   try {
     uni.closeSocket()
   } catch {
@@ -211,7 +398,9 @@ function handleConnect() {
     url: relayWs.value.trim(),
     fail: (err) => {
       connecting.value = false
+      socketOpen.value = false
       statusLine.value = '无法发起连接'
+      pushLog('error', 'CONNECT', '无法发起连接', err?.errMsg || err)
       console.error(err)
     },
   })
@@ -244,6 +433,7 @@ async function pushSetPlan() {
     planIds.value = plan.map((p) => p.id)
     currentIndex.value = 0
     sendCmd('setPlan', { plan, currentItemId: plan[0].id })
+    pushLog('out', 'setPlan', `下发 ${plan.length} 项`, { currentItemId: plan[0].id })
     uni.showToast({ title: '计划已下发', icon: 'success' })
   } catch (e) {
     console.error(e)
@@ -277,7 +467,12 @@ onMounted(() => {
   planTitle.value = decodeURIComponent(opts.planTitle || '')
   const savedWs = uni.getStorageSync('relayWs')
   if (typeof savedWs === 'string' && savedWs) relayWs.value = savedWs
+  const savedRoom = uni.getStorageSync('relayRoomId')
+  if (typeof savedRoom === 'string' && savedRoom) roomId.value = savedRoom
+  const savedToken = uni.getStorageSync('relayToken')
+  if (typeof savedToken === 'string' && savedToken) token.value = savedToken
   uni.setNavigationBarTitle({ title: '大屏遥控' })
+  pushLog('info', 'INIT', `planId=${planId.value} ws=${relayWs.value}`)
 })
 
 onUnmounted(() => {
@@ -326,6 +521,20 @@ onUnmounted(() => {
   padding: 16rpx;
   font-size: 28rpx;
 }
+.code-input {
+  font-family: ui-monospace, monospace;
+  font-size: 36rpx;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+.field-hint {
+  display: block;
+  font-size: 22rpx;
+  color: #d48806;
+  line-height: 1.5;
+  margin-top: -8rpx;
+  margin-bottom: 8rpx;
+}
 .btn {
   margin-top: 12rpx;
   background: #f0f0f0;
@@ -361,5 +570,107 @@ onUnmounted(() => {
   color: #666;
   display: block;
   margin-bottom: 12rpx;
+}
+.conn-badge {
+  display: inline-block;
+  margin-top: 16rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  font-weight: bold;
+}
+.phase-idle {
+  background: #f5f5f5;
+  color: #999;
+}
+.phase-connecting {
+  background: #fff7e6;
+  color: #d48806;
+}
+.phase-open {
+  background: #e6f7ff;
+  color: #096dd9;
+}
+.phase-joined {
+  background: #f6ffed;
+  color: #389e0d;
+}
+.debug-card {
+  padding-bottom: 16rpx;
+}
+.debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.debug-head .card-title {
+  margin-bottom: 0;
+}
+.debug-toggle {
+  font-size: 24rpx;
+  color: #07c160;
+}
+.debug-body {
+  margin-top: 16rpx;
+}
+.debug-tip {
+  display: block;
+  font-size: 22rpx;
+  color: #d48806;
+  margin-bottom: 12rpx;
+  line-height: 1.5;
+}
+.debug-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 12rpx;
+}
+.debug-log {
+  max-height: 360rpx;
+  background: #1e1e1e;
+  border-radius: 8rpx;
+  padding: 12rpx;
+}
+.log-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-bottom: 8rpx;
+  font-size: 20rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.log-time {
+  color: #888;
+  flex-shrink: 0;
+}
+.log-tag {
+  color: #61dafb;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+.log-msg {
+  color: #ddd;
+  flex: 1;
+}
+.log-out .log-tag {
+  color: #98c379;
+}
+.log-in .log-tag {
+  color: #e5c07b;
+}
+.log-ok .log-tag {
+  color: #98c379;
+}
+.log-error .log-tag,
+.log-error .log-msg {
+  color: #e06c75;
+}
+.log-warn .log-tag {
+  color: #d19a66;
+}
+.log-empty {
+  font-size: 22rpx;
+  color: #888;
 }
 </style>

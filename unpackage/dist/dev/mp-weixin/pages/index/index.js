@@ -4,6 +4,7 @@ const _sfc_main = {
   __name: "index",
   setup(__props) {
     const isRegister = common_vendor.ref(false);
+    const formKey = common_vendor.ref(0);
     const formData = common_vendor.reactive({
       username: "",
       // 账号
@@ -14,6 +15,18 @@ const _sfc_main = {
       password: "",
       confirmPassword: ""
     });
+    const handlePasswordInput = (e) => {
+      const value = e.detail.value;
+      if (value && /^\*+$/.test(value))
+        return;
+      formData.password = value;
+    };
+    const handleConfirmPasswordInput = (e) => {
+      const value = e.detail.value;
+      if (value && /^\*+$/.test(value))
+        return;
+      formData.confirmPassword = value;
+    };
     const toggleMode = () => {
       isRegister.value = !isRegister.value;
       formData.password = "";
@@ -21,6 +34,7 @@ const _sfc_main = {
       formData.username = "";
       formData.nickname = "";
       formData.mobile = "";
+      formKey.value++;
     };
     const handleSubmit = () => {
       if (!formData.username) {
@@ -61,6 +75,7 @@ const _sfc_main = {
           username: formData.username,
           password: formData.password
         };
+        common_vendor.index.__f__("log", "at pages/index/index.vue:195", "[登录调试] 账号:", formData.username, "密码:", formData.password);
       }
       common_vendor.index.request({
         url: requestUrl,
@@ -72,7 +87,7 @@ const _sfc_main = {
         data: postData,
         success: (res) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("log", "at pages/index/index.vue:191", "后端返回:", res.data);
+          common_vendor.index.__f__("log", "at pages/index/index.vue:208", "后端返回:", res.data);
           if (res.data.code === 0) {
             common_vendor.index.showToast({ title: isRegister.value ? "注册成功" : "登录成功" });
             if (res.data.data && res.data.data.accessToken) {
@@ -88,7 +103,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/index/index.vue:213", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:230", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -102,7 +117,7 @@ const _sfc_main = {
       });
     };
     const getUserInfo = (token) => {
-      common_vendor.index.__f__("log", "at pages/index/index.vue:231", "获取用户信息，token:", token);
+      common_vendor.index.__f__("log", "at pages/index/index.vue:248", "获取用户信息，token:", token);
     };
     return (_ctx, _cache) => {
       return common_vendor.e({
@@ -120,19 +135,19 @@ const _sfc_main = {
       } : {}, {
         i: formData.username,
         j: common_vendor.o(($event) => formData.username = $event.detail.value, "11"),
-        k: formData.password,
-        l: common_vendor.o(($event) => formData.password = $event.detail.value, "ce"),
+        k: "password-" + formKey.value,
+        l: common_vendor.o(handlePasswordInput, "2e"),
         m: isRegister.value
       }, isRegister.value ? {
-        n: formData.confirmPassword,
-        o: common_vendor.o(($event) => formData.confirmPassword = $event.detail.value, "05")
+        n: "confirm-" + formKey.value,
+        o: common_vendor.o(handleConfirmPasswordInput, "35")
       } : {}, {
         p: common_vendor.t(isRegister.value ? "立即注册" : "登 录"),
-        q: common_vendor.o(handleSubmit, "02"),
+        q: common_vendor.o(handleSubmit, "30"),
         r: common_vendor.t(isRegister.value ? "已有账号？" : "还没有账号？"),
         s: common_vendor.t(isRegister.value ? "去登录" : "立即注册"),
-        t: common_vendor.o(toggleMode, "41"),
-        v: common_vendor.o(handleWechatLogin, "ea")
+        t: common_vendor.o(toggleMode, "34"),
+        v: common_vendor.o(handleWechatLogin, "1e")
       });
     };
   }

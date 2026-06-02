@@ -55,9 +55,9 @@
           <view class="icon-box">🔒</view>
           <input
             class="input"
-            type="safe-password"
             password
-            v-model="formData.password"
+            :key="'password-' + formKey"
+            @input="handlePasswordInput"
             placeholder="请输入密码"
             placeholder-class="placeholder-style"
           />
@@ -67,9 +67,9 @@
           <view class="icon-box">🛡️</view>
           <input
             class="input"
-            type="safe-password"
             password
-            v-model="formData.confirmPassword"
+            :key="'confirm-' + formKey"
+            @input="handleConfirmPasswordInput"
             placeholder="请再次确认密码"
             placeholder-class="placeholder-style"
           />
@@ -107,6 +107,7 @@ import { reactive, ref } from 'vue';
 
 // --- 状态定义 ---
 const isRegister = ref(false);
+const formKey = ref(0);
 
 const formData = reactive({
   username: '',      // 账号
@@ -118,6 +119,19 @@ const formData = reactive({
 
 // --- 逻辑处理 ---
 
+const handlePasswordInput = (e) => {
+  const value = e.detail.value;
+  // 微信小程序 password 输入框偶发回传掩码字符，忽略以免覆盖真实密码
+  if (value && /^\*+$/.test(value)) return;
+  formData.password = value;
+};
+
+const handleConfirmPasswordInput = (e) => {
+  const value = e.detail.value;
+  if (value && /^\*+$/.test(value)) return;
+  formData.confirmPassword = value;
+};
+
 const toggleMode = () => {
   isRegister.value = !isRegister.value;
   // 切换模式时清空敏感信息，提升体验
@@ -126,6 +140,7 @@ const toggleMode = () => {
   formData.username = '';
   formData.nickname = '';
   formData.mobile = '';
+  formKey.value++;
 };
 
 const handleSubmit = () => {
@@ -176,6 +191,8 @@ const handleSubmit = () => {
       username: formData.username,
       password: formData.password
     };
+    // 调试：打印登录账号密码
+    console.log('[登录调试] 账号:', formData.username, '密码:', formData.password);
   }
 
   uni.request({

@@ -9,7 +9,97 @@ const _sfc_main = {
     const token = common_vendor.ref("");
     const connecting = common_vendor.ref(false);
     const socketJoined = common_vendor.ref(false);
+    const socketOpen = common_vendor.ref(false);
     const statusLine = common_vendor.ref("");
+    const showDebug = common_vendor.ref(true);
+    const debugLogs = common_vendor.ref([]);
+    const logScrollTop = common_vendor.ref(0);
+    const connectionPhase = common_vendor.computed(() => {
+      if (socketJoined.value)
+        return "joined";
+      if (connecting.value && socketOpen.value)
+        return "open";
+      if (connecting.value)
+        return "connecting";
+      return "idle";
+    });
+    const phaseLabel = common_vendor.computed(() => {
+      const map = {
+        idle: "未连接",
+        connecting: "握手中…",
+        open: "已握手，等待 joined",
+        joined: "已加入房间"
+      };
+      return map[connectionPhase.value] || "未知";
+    });
+    const phaseClass = common_vendor.computed(() => `phase-${connectionPhase.value}`);
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+    function nowStr() {
+      const d = /* @__PURE__ */ new Date();
+      return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+    }
+    function pushLog(level, tag, msg, detail) {
+      const row = { level, tag, msg, time: nowStr() };
+      if (detail !== void 0) {
+        try {
+          row.msg += ` ${typeof detail === "string" ? detail : JSON.stringify(detail)}`;
+        } catch {
+          row.msg += " [detail]";
+        }
+      }
+      debugLogs.value.push(row);
+      if (debugLogs.value.length > 80)
+        debugLogs.value.shift();
+      logScrollTop.value = debugLogs.value.length * 999;
+      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:152", `[screen-control][${tag}]`, msg, detail ?? "");
+    }
+    function clearDebugLogs() {
+      debugLogs.value = [];
+      logScrollTop.value = 0;
+    }
+    const DIGITS4 = /^\d{4}$/;
+    function normalizeDigits4(value) {
+      return String(value ?? "").replace(/\D/g, "").slice(0, 4);
+    }
+    function normalizeRoomFields() {
+      roomId.value = normalizeDigits4(roomId.value);
+      token.value = normalizeDigits4(token.value);
+    }
+    function pasteJoinInfo() {
+      common_vendor.index.getClipboardData({
+        success: (res) => {
+          const text = String(res.data || "").trim();
+          if (!text) {
+            common_vendor.index.showToast({ title: "剪贴板为空", icon: "none" });
+            return;
+          }
+          const roomMatch = text.match(/房间号[:：]\s*(\d{4})/);
+          const tokenMatch = text.match(/令牌[:：]\s*(\d{4})/);
+          if (roomMatch && tokenMatch) {
+            roomId.value = roomMatch[1];
+            token.value = tokenMatch[1];
+          } else {
+            const digits = text.match(/\d{4}/g);
+            if ((digits == null ? void 0 : digits.length) >= 2) {
+              roomId.value = digits[0];
+              token.value = digits[1];
+            } else if ((digits == null ? void 0 : digits.length) === 1) {
+              roomId.value = digits[0];
+            } else {
+              common_vendor.index.showToast({ title: "未找到4位数字", icon: "none" });
+              return;
+            }
+          }
+          normalizeRoomFields();
+          common_vendor.index.showToast({ title: "已粘贴", icon: "success" });
+        },
+        fail: () => {
+          common_vendor.index.showToast({ title: "无法读取剪贴板", icon: "none" });
+        }
+      });
+    }
     const lessonId = common_vendor.ref(0);
     const planId = common_vendor.ref(0);
     const planTitle = common_vendor.ref("");
@@ -58,26 +148,35 @@ const _sfc_main = {
       });
     }
     function sendRaw(obj) {
+      pushLog("out", "SEND", obj.type || "raw", obj);
       try {
         common_vendor.index.sendSocketMessage({ data: JSON.stringify(obj) });
       } catch (e) {
         statusLine.value = "发送失败";
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:121", e);
+        pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:260", e);
       }
+    }
+    function sendPingState() {
+      pushLog("info", "TEST", "等待服务端 state 广播（下发计划或操控后会收到）");
     }
     function sendCmd(name, payload) {
       sendRaw({ type: "command", name, payload });
     }
     function onSocketMessageHandler(res) {
-      var _a, _b;
+      var _a, _b, _c, _d;
+      pushLog("in", "RECV", "raw", res.data);
       try {
         const msg = JSON.parse(res.data);
         if (msg.type === "joined") {
           socketJoined.value = true;
           connecting.value = false;
           statusLine.value = "已加入房间";
+          pushLog("ok", "JOINED", `roomId=${msg.roomId}`, msg);
           try {
             common_vendor.index.setStorageSync("relayWs", relayWs.value.trim());
+            common_vendor.index.setStorageSync("relayRoomId", roomId.value.trim());
+            common_vendor.index.setStorageSync("relayToken", token.value.trim());
           } catch {
           }
           void pushSetPlan();
@@ -88,14 +187,28 @@ const _sfc_main = {
           const idx = msg.state.plan.findIndex((p) => p.id === msg.state.currentItemId);
           if (idx >= 0)
             currentIndex.value = idx;
+          pushLog("info", "STATE", `plan=${msg.state.plan.length}项 paused=${msg.state.paused}`);
+          return;
+        }
+        if (msg.type === "state") {
+          pushLog("info", "STATE", "状态更新", {
+            paused: (_c = msg.state) == null ? void 0 : _c.paused,
+            currentItemId: (_d = msg.state) == null ? void 0 : _d.currentItemId
+          });
           return;
         }
         if (msg.type === "error") {
-          statusLine.value = msg.message || msg.code || "错误";
+          if (msg.code === "unauthorized") {
+            statusLine.value = "房间号或令牌错误，请核对4位数字";
+          } else {
+            statusLine.value = msg.message || msg.code || "错误";
+          }
           connecting.value = false;
+          pushLog("error", "ERROR", msg.message || msg.code, msg);
         }
       } catch {
         statusLine.value = "消息解析失败";
+        pushLog("error", "PARSE", "消息解析失败", res.data);
       }
     }
     function clearSocketListeners() {
@@ -109,6 +222,8 @@ const _sfc_main = {
     }
     function bindSocketListeners() {
       common_vendor.index.onSocketOpen(() => {
+        socketOpen.value = true;
+        pushLog("ok", "OPEN", relayWs.value.trim());
         sendRaw({
           type: "join",
           role: "mobile",
@@ -117,29 +232,51 @@ const _sfc_main = {
         });
       });
       common_vendor.index.onSocketMessage(onSocketMessageHandler);
-      common_vendor.index.onSocketError(() => {
+      common_vendor.index.onSocketError((err) => {
         statusLine.value = "WebSocket 错误";
         connecting.value = false;
+        socketOpen.value = false;
+        pushLog("error", "WS_ERR", "WebSocket 错误", (err == null ? void 0 : err.errMsg) || err);
       });
-      common_vendor.index.onSocketClose(() => {
+      common_vendor.index.onSocketClose((res) => {
         socketJoined.value = false;
         connecting.value = false;
+        socketOpen.value = false;
         statusLine.value = "连接已关闭";
+        pushLog("warn", "CLOSE", `code=${(res == null ? void 0 : res.code) ?? "-"} reason=${(res == null ? void 0 : res.reason) || "-"}`, res);
       });
+    }
+    function handleDisconnect() {
+      pushLog("info", "DISCONNECT", "主动断开");
+      clearSocketListeners();
+      try {
+        common_vendor.index.closeSocket();
+      } catch {
+      }
+      socketJoined.value = false;
+      connecting.value = false;
+      socketOpen.value = false;
+      statusLine.value = "已断开";
     }
     function handleConnect() {
       if (socketJoined.value)
         return;
+      normalizeRoomFields();
       if (!relayWs.value.trim()) {
         common_vendor.index.showToast({ title: "请填写 WS 地址", icon: "none" });
         return;
       }
-      if (!roomId.value.trim() || !token.value.trim()) {
-        common_vendor.index.showToast({ title: "请填写房间号与令牌", icon: "none" });
+      if (!DIGITS4.test(roomId.value) || !DIGITS4.test(token.value)) {
+        common_vendor.index.showToast({ title: "房间号与令牌均为4位数字", icon: "none" });
         return;
       }
       statusLine.value = "";
       connecting.value = true;
+      socketOpen.value = false;
+      pushLog("info", "CONNECT", relayWs.value.trim(), {
+        roomId: roomId.value,
+        token: token.value
+      });
       try {
         common_vendor.index.closeSocket();
       } catch {
@@ -150,8 +287,10 @@ const _sfc_main = {
         url: relayWs.value.trim(),
         fail: (err) => {
           connecting.value = false;
+          socketOpen.value = false;
           statusLine.value = "无法发起连接";
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:215", err);
+          pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:404", err);
         }
       });
     }
@@ -182,9 +321,10 @@ const _sfc_main = {
         planIds.value = plan.map((p) => p.id);
         currentIndex.value = 0;
         sendCmd("setPlan", { plan, currentItemId: plan[0].id });
+        pushLog("out", "setPlan", `下发 ${plan.length} 项`, { currentItemId: plan[0].id });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:249", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:439", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;
@@ -214,7 +354,14 @@ const _sfc_main = {
       const savedWs = common_vendor.index.getStorageSync("relayWs");
       if (typeof savedWs === "string" && savedWs)
         relayWs.value = savedWs;
+      const savedRoom = common_vendor.index.getStorageSync("relayRoomId");
+      if (typeof savedRoom === "string" && savedRoom)
+        roomId.value = savedRoom;
+      const savedToken = common_vendor.index.getStorageSync("relayToken");
+      if (typeof savedToken === "string" && savedToken)
+        token.value = savedToken;
       common_vendor.index.setNavigationBarTitle({ title: "大屏遥控" });
+      pushLog("info", "INIT", `planId=${planId.value} ws=${relayWs.value}`);
     });
     common_vendor.onUnmounted(() => {
       clearSocketListeners();
@@ -227,36 +374,65 @@ const _sfc_main = {
       return common_vendor.e({
         a: relayWs.value,
         b: common_vendor.o(($event) => relayWs.value = $event.detail.value, "52"),
-        c: roomId.value,
-        d: common_vendor.o(($event) => roomId.value = $event.detail.value, "f6"),
-        e: token.value,
-        f: common_vendor.o(($event) => token.value = $event.detail.value, "85"),
-        g: common_vendor.t(socketJoined.value ? "已连接" : connecting.value ? "连接中…" : "连接"),
-        h: connecting.value,
-        i: common_vendor.o(handleConnect, "65"),
-        j: statusLine.value
+        c: common_vendor.o(normalizeRoomFields, "d9"),
+        d: roomId.value,
+        e: common_vendor.o(($event) => roomId.value = $event.detail.value, "bf"),
+        f: common_vendor.o(normalizeRoomFields, "32"),
+        g: token.value,
+        h: common_vendor.o(($event) => token.value = $event.detail.value, "b8"),
+        i: common_vendor.o(pasteJoinInfo, "3a"),
+        j: common_vendor.t(socketJoined.value ? "已连接" : connecting.value ? "连接中…" : "连接"),
+        k: connecting.value,
+        l: common_vendor.o(handleConnect, "2b"),
+        m: connecting.value || socketJoined.value
+      }, connecting.value || socketJoined.value ? {
+        n: common_vendor.o(handleDisconnect, "89")
+      } : {}, {
+        o: common_vendor.t(phaseLabel.value),
+        p: common_vendor.n(phaseClass.value),
+        q: statusLine.value
       }, statusLine.value ? {
-        k: common_vendor.t(statusLine.value)
+        r: common_vendor.t(statusLine.value)
       } : {}, {
-        l: socketJoined.value
+        s: common_vendor.t(showDebug.value ? "收起" : "展开"),
+        t: common_vendor.o(($event) => showDebug.value = !showDebug.value, "74"),
+        v: showDebug.value
+      }, showDebug.value ? common_vendor.e({
+        w: common_vendor.o(clearDebugLogs, "8e"),
+        x: !socketJoined.value,
+        y: common_vendor.o(sendPingState, "60"),
+        z: common_vendor.f(debugLogs.value, (row, i, i0) => {
+          return {
+            a: common_vendor.t(row.time),
+            b: common_vendor.t(row.tag),
+            c: common_vendor.t(row.msg),
+            d: i,
+            e: common_vendor.n("log-" + row.level)
+          };
+        }),
+        A: !debugLogs.value.length
+      }, !debugLogs.value.length ? {} : {}, {
+        B: logScrollTop.value
+      }) : {}, {
+        C: socketJoined.value
       }, socketJoined.value ? {
-        m: common_vendor.t(planTitle.value),
-        n: common_vendor.t(planCount.value),
-        o: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
-        p: loadingPlan.value,
-        q: common_vendor.o(pushSetPlan, "38")
+        D: common_vendor.t(planTitle.value),
+        E: common_vendor.t(planCount.value),
+        F: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
+        G: loadingPlan.value,
+        H: common_vendor.o(pushSetPlan, "40")
       } : {}, {
-        r: socketJoined.value && planIds.value.length
+        I: socketJoined.value && planIds.value.length
       }, socketJoined.value && planIds.value.length ? {
-        s: common_vendor.o(($event) => sendCmd("resume"), "2c"),
-        t: common_vendor.o(($event) => sendCmd("pause"), "f3"),
-        v: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "45"),
-        w: currentIndex.value <= 0,
-        x: common_vendor.o(($event) => shiftItem(-1), "88"),
-        y: currentIndex.value >= planIds.value.length - 1,
-        z: common_vendor.o(($event) => shiftItem(1), "c0"),
-        A: common_vendor.o(toggleVideo, "0b"),
-        B: common_vendor.o(endTraining, "1e")
+        J: common_vendor.o(($event) => sendCmd("resume"), "28"),
+        K: common_vendor.o(($event) => sendCmd("pause"), "e0"),
+        L: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "68"),
+        M: currentIndex.value <= 0,
+        N: common_vendor.o(($event) => shiftItem(-1), "9a"),
+        O: currentIndex.value >= planIds.value.length - 1,
+        P: common_vendor.o(($event) => shiftItem(1), "45"),
+        Q: common_vendor.o(toggleVideo, "99"),
+        R: common_vendor.o(endTraining, "a2")
       } : {});
     };
   }

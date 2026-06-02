@@ -58,6 +58,20 @@
   padding: 16rpx;
   font-size: 28rpx;
 }
+.code-input.data-v-b984102b {
+  font-family: ui-monospace, monospace;
+  font-size: 36rpx;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+.field-hint.data-v-b984102b {
+  display: block;
+  font-size: 22rpx;
+  color: #d48806;
+  line-height: 1.5;
+  margin-top: -8rpx;
+  margin-bottom: 8rpx;
+}
 .btn.data-v-b984102b {
   margin-top: 12rpx;
   background: #f0f0f0;
@@ -93,4 +107,106 @@
   color: #666;
   display: block;
   margin-bottom: 12rpx;
+}
+.conn-badge.data-v-b984102b {
+  display: inline-block;
+  margin-top: 16rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  font-weight: bold;
+}
+.phase-idle.data-v-b984102b {
+  background: #f5f5f5;
+  color: #999;
+}
+.phase-connecting.data-v-b984102b {
+  background: #fff7e6;
+  color: #d48806;
+}
+.phase-open.data-v-b984102b {
+  background: #e6f7ff;
+  color: #096dd9;
+}
+.phase-joined.data-v-b984102b {
+  background: #f6ffed;
+  color: #389e0d;
+}
+.debug-card.data-v-b984102b {
+  padding-bottom: 16rpx;
+}
+.debug-head.data-v-b984102b {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.debug-head .card-title.data-v-b984102b {
+  margin-bottom: 0;
+}
+.debug-toggle.data-v-b984102b {
+  font-size: 24rpx;
+  color: #07c160;
+}
+.debug-body.data-v-b984102b {
+  margin-top: 16rpx;
+}
+.debug-tip.data-v-b984102b {
+  display: block;
+  font-size: 22rpx;
+  color: #d48806;
+  margin-bottom: 12rpx;
+  line-height: 1.5;
+}
+.debug-actions.data-v-b984102b {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 12rpx;
+}
+.debug-log.data-v-b984102b {
+  max-height: 360rpx;
+  background: #1e1e1e;
+  border-radius: 8rpx;
+  padding: 12rpx;
+}
+.log-row.data-v-b984102b {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-bottom: 8rpx;
+  font-size: 20rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.log-time.data-v-b984102b {
+  color: #888;
+  flex-shrink: 0;
+}
+.log-tag.data-v-b984102b {
+  color: #61dafb;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+.log-msg.data-v-b984102b {
+  color: #ddd;
+  flex: 1;
+}
+.log-out .log-tag.data-v-b984102b {
+  color: #98c379;
+}
+.log-in .log-tag.data-v-b984102b {
+  color: #e5c07b;
+}
+.log-ok .log-tag.data-v-b984102b {
+  color: #98c379;
+}
+.log-error .log-tag.data-v-b984102b,
+.log-error .log-msg.data-v-b984102b {
+  color: #e06c75;
+}
+.log-warn .log-tag.data-v-b984102b {
+  color: #d19a66;
+}
+.log-empty.data-v-b984102b {
+  font-size: 22rpx;
+  color: #888;
 }

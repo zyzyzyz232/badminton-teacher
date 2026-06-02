@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { createServer } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { SessionState } from './session.js'
 import {
@@ -27,12 +28,23 @@ type Room = {
 const rooms = new Map<string, Room>()
 const meta = new Map<WebSocket, ClientMeta>()
 
-function randomId(len = 8): string {
-  return randomBytes(len).toString('base64url').slice(0, len).toUpperCase()
+const DIGITS4 = /^\d{4}$/
+
+function randomDigits4(): string {
+  const n = randomBytes(2).readUInt16BE(0) % 10000
+  return String(n).padStart(4, '0')
+}
+
+function randomRoomId(): string {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const id = randomDigits4()
+    if (!rooms.has(id)) return id
+  }
+  throw new Error('[relay] no available room id')
 }
 
 function randomToken(): string {
-  return randomBytes(24).toString('hex')
+  return randomDigits4()
 }
 
 function send(ws: WebSocket, msg: ServerToClient) {
@@ -81,7 +93,7 @@ function handleJoin(ws: WebSocket, msg: Extract<ClientToServer, { type: 'join' }
   }
 
   if (msg.role === 'display' && !msg.roomId) {
-    const id = randomId(8)
+    const id = randomRoomId()
     const token = randomToken()
     const room: Room = {
       id,
@@ -103,7 +115,12 @@ function handleJoin(ws: WebSocket, msg: Extract<ClientToServer, { type: 'join' }
   }
 
   if (!msg.roomId || !msg.token) {
-    send(ws, { type: 'error', code: 'bad_join', message: '缺少房间或令牌' })
+    send(ws, { type: 'error', code: 'bad_join', message: '缺少房间号或令牌' })
+    return
+  }
+
+  if (!DIGITS4.test(msg.roomId) || !DIGITS4.test(msg.token)) {
+    send(ws, { type: 'error', code: 'bad_join', message: '房间号与令牌均为4位数字' })
     return
   }
 
@@ -146,7 +163,46 @@ function handleCommand(ws: WebSocket, msg: Extract<ClientToServer, { type: 'comm
   broadcastRoom(room)
 }
 
-const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' })
+const wss = new WebSocketServer({ noServer: true })
+
+const server = createServer((req, res) => {
+  if (req.url === '/' || req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+    res.end(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Relay Server</title></head>
+<body style="font-family:sans-serif;max-width:640px;margin:40px auto;line-height:1.6">
+  <h1>中继服务运行中</h1>
+  <p>端口 <code>${PORT}</code> 是 <strong>WebSocket</strong> 中继，不是网页地址。</p>
+  <p>浏览器直接打开会显示 <code>Upgrade Required</code>，这是正常现象。</p>
+  <h2>正确用法</h2>
+  <ol>
+    <li>保持本中继运行（当前页面说明服务已启动）</li>
+    <li>在 <code>gym_screen</code> 目录执行 <code>npm run dev</code></li>
+    <li>浏览器打开大屏前端（通常 <a href="http://localhost:5173">http://localhost:5173</a>）</li>
+    <li>小程序/遥控端连接 <code>ws://localhost:${PORT}</code>（手机请改用局域网 IP）</li>
+  </ol>
+  <p>WebSocket 地址：<code>ws://localhost:${PORT}</code></p>
+</body>
+</html>`)
+    return
+  }
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+  res.end('Not Found')
+})
+
+server.on('upgrade', (req, socket, head) => {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req)
+  })
+})
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(
+    `[relay] WebSocket listening on 0.0.0.0:${PORT} (e.g. ws://localhost:${PORT} or ws://<LAN-IP>:${PORT})`,
+  )
+  console.log(`[relay] HTTP health check: http://localhost:${PORT}/`)
+})
 
 wss.on('connection', (ws) => {
   meta.set(ws, { ws, roomId: null, role: null })
@@ -193,7 +249,3 @@ setInterval(() => {
     broadcastRoom(room)
   }
 }, 1000)
-
-console.log(
-  `[relay] WebSocket listening on 0.0.0.0:${PORT} (e.g. ws://localhost:${PORT} or ws://<LAN-IP>:${PORT})`,
-)

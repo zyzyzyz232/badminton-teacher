@@ -24,11 +24,13 @@ set PORT=4000
 npm start
 ```
 
+浏览器访问 `http://localhost:3456` 会显示中继状态说明页（**不是大屏界面**）。大屏请启动 `gym_screen` 后打开 `http://localhost:5173`；WebSocket 客户端连接 `ws://localhost:3456`。
+
 ## 协议概要
 
 - 连接后须先发送 `join`（15 秒内），否则断开。
-- **大屏（display）**：`{"type":"join","role":"display"}` → 返回 `joined`（含新建 `roomId`、`token`、`state`）。
-- **小程序（mobile）**：`{"type":"join","role":"mobile","roomId":"...","token":"..."}` → `joined`。
+- **大屏（display）**：`{"type":"join","role":"display"}` → 返回 `joined`（含新建 **4 位数字** `roomId`、`token`、`state`）。
+- **小程序（mobile）**：`{"type":"join","role":"mobile","roomId":"1234","token":"5678"}` → `joined`。
 - **命令**：`{"type":"command","name":"pause","payload":{}}` 等；成功则向房间内所有连接广播 `state`。
 
 命令名与负载与仓库外参考项目 control-screen 对齐，并增加 **`setPlan`**：
