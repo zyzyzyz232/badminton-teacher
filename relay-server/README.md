@@ -36,7 +36,9 @@ npm start
 
 命令名与负载与仓库外参考项目 control-screen 对齐，并增加 **`setPlan`**：
 
-`{"type":"command","name":"setPlan","payload":{"plan":[{"id":"1","title":"热身","durationMin":5,"videoUrl":"https://..."}],"currentItemId":"1"}}`
+`{"type":"command","name":"setPlan","payload":{"plan":[{"id":"1","title":"热身","durationMin":5,"videoUrl":"https://..."}],"currentItemId":"1","mediaBearerToken":"<教师端 accessToken>"}}`
+
+`mediaBearerToken` 用于中继 **`GET /media-proxy?roomId=1001&url=<编码后的视频地址>`** 代拉需登录的视频（大屏 `<video>` 无法自带 Authorization 头）。
 
 ## 局域网与小程序
 

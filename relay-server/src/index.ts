@@ -9,8 +9,17 @@ import {
   tickState,
 } from './stateLogic.js'
 import type { ClientToServer, ServerToClient } from './protocol.js'
+import { describeUpstreamFailure, fetchMediaWithFallback, isMediaContentType } from './mediaProxy.js'
 
 const PORT = Number(process.env.PORT ?? 3456)
+const RELAY_PROTOCOL = 2
+/** 用于确认机房已部署本仓库完整构建（非旧版 WS） */
+const RELAY_BUILD_ID = 'relay-2026-v2'
+
+function requestPath(req: import('node:http').IncomingMessage): string {
+  const raw = req.url || '/'
+  return raw.split('?')[0] || '/'
+}
 
 type ClientMeta = {
   ws: WebSocket
@@ -87,7 +96,15 @@ function getRoom(id: string): Room | undefined {
 }
 
 function deleteRoomIfEmpty(room: Room) {
-  if (room.clients.size === 0) rooms.delete(room.id)
+  if (room.clients.size === 0) {
+    // 固定房间常驻，避免大屏重连时房间被清掉
+    if (room.id === PINNED_ROOM_ID) return
+    rooms.delete(room.id)
+  }
+}
+
+function isPinnedCredentials(roomId: string, token: string) {
+  return roomId === PINNED_ROOM_ID && token === PINNED_TOKEN
 }
 
 function attachClient(ws: WebSocket, room: Room) {
@@ -139,8 +156,13 @@ function joinRoomWithCredentials(
     }
     rooms.set(room.id, room)
   } else if (room.token !== token) {
-    send(ws, { type: 'error', code: 'unauthorized', message: '房间号已占用且令牌不匹配' })
-    return
+    if (role === 'display' && isPinnedCredentials(roomId, token)) {
+      room.token = token
+      console.log(`[relay] 固定房间 ${roomId} 令牌已同步为预置值`)
+    } else {
+      send(ws, { type: 'error', code: 'unauthorized', message: '房间号已占用且令牌不匹配' })
+      return
+    }
   }
 
   attachClient(ws, room)
@@ -165,6 +187,7 @@ function handleJoin(ws: WebSocket, msg: Extract<ClientToServer, { type: 'join' }
   const role = String(msg.role ?? '').toLowerCase()
   const roomId = normalizeCode(msg.roomId)
   const token = normalizeCode(msg.token)
+  console.log(`[relay] join role=${role} roomId=${roomId || '-'} token=${token ? '****' : '-'}`)
 
   if (role === 'display') {
     if (roomId && token) {
@@ -228,8 +251,139 @@ function handleCommand(ws: WebSocket, msg: Extract<ClientToServer, { type: 'comm
 
 const wss = new WebSocketServer({ noServer: true })
 
+function writeCors(res: import('node:http').ServerResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+}
+
+async function proxyMedia(
+  req: import('node:http').IncomingMessage,
+  res: import('node:http').ServerResponse,
+  rawUrl: string,
+) {
+  try {
+    const u = new URL(rawUrl, 'http://127.0.0.1')
+    const target = u.searchParams.get('url')
+    const roomId = u.searchParams.get('roomId') || ''
+    if (!target) {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+      res.end('missing url')
+      return
+    }
+    let token = u.searchParams.get('token')?.trim() || ''
+    const room = roomId ? getRoom(roomId) : undefined
+    if (!token && room?.state.mediaBearerToken) {
+      token = room.state.mediaBearerToken
+    }
+    if (!token) {
+      res.writeHead(401, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-Relay-Error': 'missing-token',
+      })
+      res.end(
+        JSON.stringify({
+          code: 401,
+          source: 'relay',
+          msg: '缺少视频访问令牌。请带 roomId=1001 且 token=登录令牌，或先让教师端连上同一台中继（勿用 localhost 测远端房间）',
+        }),
+      )
+      return
+    }
+    const tenantId = room?.state.mediaTenantId || '1'
+    const range = typeof req.headers.range === 'string' ? req.headers.range : undefined
+    console.log('[relay] media-proxy req', {
+      roomId: roomId || '(none)',
+      target: target.slice(0, 100),
+      token: token ? `${token.slice(0, 8)}…` : 'missing',
+      range: range || '-',
+    })
+    const { response: upstream, tried, lastError } = await fetchMediaWithFallback(
+      target,
+      token,
+      tenantId,
+      range,
+    )
+    console.log('[relay] media-proxy upstream', {
+      status: upstream.status,
+      contentType: upstream.headers.get('content-type'),
+      tried: tried.length,
+      first: tried[0]?.slice(0, 80),
+      lastError: lastError || 'ok',
+    })
+    const upstreamCt = upstream.headers.get('content-type')
+    if (
+      !((upstream.ok || upstream.status === 206) && isMediaContentType(upstreamCt))
+    ) {
+      const detail = lastError || (await describeUpstreamFailure(upstream))
+      res.writeHead(502, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-Relay-Error': 'upstream-not-video',
+        'X-Relay-Tried': tried.slice(0, 5).join(' | ').slice(0, 800),
+      })
+      res.end(
+        JSON.stringify({
+          code: 502,
+          source: 'upstream',
+          msg: `后台未返回视频流：${detail}。请确认后台已配置 /plan-materials 静态访问或提供 download 接口`,
+          tried: tried.slice(0, 5),
+        }),
+      )
+      return
+    }
+    const headers: Record<string, string> = {}
+    for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+      const v = upstream.headers.get(h)
+      if (v) headers[h] = v
+    }
+    if (!headers['content-type']) headers['Content-Type'] = 'video/mp4'
+    res.writeHead(upstream.status, headers)
+    if (upstream.body) {
+      const { Readable } = await import('node:stream')
+      const { pipeline } = await import('node:stream/promises')
+      // fetch Body 与 Node Readable.fromWeb 的泛型在 TS 5.7 下不完全一致，运行时兼容
+      const webBody = upstream.body as import('stream/web').ReadableStream
+      await pipeline(Readable.fromWeb(webBody), res)
+    } else {
+      res.end()
+    }
+  } catch (e) {
+    console.error('[relay] media-proxy error', e)
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' })
+    }
+    res.end('media proxy error')
+  }
+}
+
 const server = createServer((req, res) => {
-  if (req.url === '/' || req.url === '/health') {
+  writeCors(res)
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return
+  }
+
+  const path = requestPath(req)
+
+  if (path === '/relay-info') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
+    res.end(
+      JSON.stringify({
+        protocol: RELAY_PROTOCOL,
+        build: RELAY_BUILD_ID,
+        pinnedRoomId: PINNED_ROOM_ID,
+        pinnedToken: PINNED_TOKEN,
+        port: PORT,
+      }),
+    )
+    return
+  }
+  if (path.startsWith('/media-proxy')) {
+    void proxyMedia(req, res, req.url || path)
+    return
+  }
+  if (path === '/' || path === '/health') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
     res.end(`<!DOCTYPE html>
 <html lang="zh-CN">
@@ -237,7 +391,7 @@ const server = createServer((req, res) => {
 <body style="font-family:sans-serif;max-width:640px;margin:40px auto;line-height:1.6">
   <h1>中继服务运行中</h1>
   <p>端口 <code>${PORT}</code> 是 <strong>WebSocket</strong> 中继，不是网页地址。</p>
-  <p>浏览器直接打开会显示 <code>Upgrade Required</code>，这是正常现象。</p>
+  <p>本页能打开说明 HTTP 正常；<code>/relay-info</code> 应返回 JSON（含 <code>build":"${RELAY_BUILD_ID}"</code>）。</p>
   <h2>正确用法</h2>
   <ol>
     <li>保持本中继运行（当前页面说明服务已启动）</li>
@@ -264,9 +418,12 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, '0.0.0.0', () => {
   ensurePinnedRoom()
   console.log(
+    `[relay] ${RELAY_BUILD_ID} protocol v${RELAY_PROTOCOL} pinned room ${PINNED_ROOM_ID}/${PINNED_TOKEN}`,
+  )
+  console.log(
     `[relay] WebSocket listening on 0.0.0.0:${PORT} (e.g. ws://localhost:${PORT} or ws://<LAN-IP>:${PORT})`,
   )
-  console.log(`[relay] HTTP health check: http://localhost:${PORT}/`)
+  console.log(`[relay] HTTP health: http://localhost:${PORT}/  info: http://localhost:${PORT}/relay-info`)
 })
 
 wss.on('connection', (ws) => {

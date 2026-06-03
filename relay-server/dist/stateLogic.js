@@ -77,6 +77,12 @@ export function applyCommand(s, cmd) {
                 return s;
             return { ...s, blockRemainingSec: item.durationMin * 60 };
         }
+        case 'setMediaAuth':
+            return {
+                ...s,
+                mediaBearerToken: cmd.token,
+                ...(cmd.tenantId ? { mediaTenantId: cmd.tenantId } : {}),
+            };
         case 'setPlan': {
             const plan = cmd.plan;
             if (plan.length === 0)
@@ -93,6 +99,7 @@ export function applyCommand(s, cmd) {
                 blockRemainingSec: item.durationMin * 60,
                 videoPlaying: false,
                 paused: true,
+                mediaBearerToken: cmd.mediaBearerToken ?? s.mediaBearerToken,
             };
         }
         default:
@@ -129,6 +136,19 @@ export function parseWireCommand(name, payload) {
             return { kind: 'toggleErrorOverlay' };
         case 'resetBlockTimer':
             return { kind: 'resetBlockTimer' };
+        case 'setMediaAuth': {
+            const token = typeof payload?.token === 'string'
+                ? payload.token.trim()
+                : typeof payload?.mediaBearerToken === 'string'
+                    ? payload.mediaBearerToken.trim()
+                    : '';
+            if (!token)
+                return null;
+            const tenantId = typeof payload?.tenantId === 'string' && payload.tenantId.trim()
+                ? payload.tenantId.trim()
+                : undefined;
+            return { kind: 'setMediaAuth', token, tenantId };
+        }
         case 'setPlan': {
             const raw = payload?.plan;
             if (!Array.isArray(raw) || raw.length === 0)
@@ -142,7 +162,10 @@ export function parseWireCommand(name, payload) {
             if (plan.length === 0)
                 return null;
             const currentItemId = typeof payload?.currentItemId === 'string' ? payload.currentItemId : undefined;
-            return { kind: 'setPlan', plan, currentItemId };
+            const mediaBearerToken = typeof payload?.mediaBearerToken === 'string' && payload.mediaBearerToken.trim()
+                ? payload.mediaBearerToken.trim()
+                : undefined;
+            return { kind: 'setPlan', plan, currentItemId, mediaBearerToken };
         }
         default:
             return null;

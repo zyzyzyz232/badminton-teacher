@@ -179,6 +179,9 @@ const _sfc_main = {
             common_vendor.index.setStorageSync("relayToken", token.value.trim());
           } catch {
           }
+          const authTok = getToken();
+          if (authTok)
+            sendCmd("setMediaAuth", { token: authTok });
           void pushSetPlan();
           return;
         }
@@ -320,7 +323,10 @@ const _sfc_main = {
         }
         planIds.value = plan.map((p) => p.id);
         currentIndex.value = 0;
-        sendCmd("setPlan", { plan, currentItemId: plan[0].id });
+        const mediaTok = getToken();
+        if (mediaTok)
+          sendCmd("setMediaAuth", { token: mediaTok });
+        sendCmd("setPlan", { plan, currentItemId: plan[0].id, mediaBearerToken: mediaTok });
         pushLog("out", "setPlan", `下发 ${plan.length} 项`, { currentItemId: plan[0].id });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {

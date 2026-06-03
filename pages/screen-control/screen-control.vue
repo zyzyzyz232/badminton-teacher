@@ -1,41 +1,15 @@
 <template>
   <view class="page">
-    <view class="card">
-      <text class="card-title">中继连接</text>
-      <view class="field">
-        <text class="label">WebSocket 地址</text>
-        <input v-model="relayWs" class="input" placeholder="ws://局域网IP:3456" />
-      </view>
-      <view class="field">
-        <text class="label">房间号（4位数字）</text>
-        <input
-          v-model="roomId"
-          class="input code-input"
-          type="number"
-          maxlength="4"
-          placeholder="如 1234"
-          @blur="normalizeRoomFields"
-        />
-      </view>
-      <view class="field">
-        <text class="label">令牌（4位数字）</text>
-        <input
-          v-model="token"
-          class="input code-input"
-          type="number"
-          maxlength="4"
-          placeholder="如 5678"
-          @blur="normalizeRoomFields"
-        />
-      </view>
-      <button class="btn" @click="pasteJoinInfo">粘贴连接信息</button>
-      <text class="field-hint">房间号/令牌已固定配置，一般无需修改；更换大屏时请改 utils/relayConfig.js</text>
-      <button class="btn primary" :disabled="connecting" @click="handleConnect">
-        {{ socketJoined ? '已连接' : connecting ? '连接中…' : '连接' }}
-      </button>
-      <button v-if="connecting || socketJoined" class="btn" @click="handleDisconnect">断开</button>
+    <view v-if="!socketJoined" class="card status-card">
       <view class="conn-badge" :class="phaseClass">{{ phaseLabel }}</view>
       <text v-if="statusLine" class="status">{{ statusLine }}</text>
+      <button
+        v-if="!connecting && connectionPhase !== 'open'"
+        class="btn primary retry-btn"
+        @click="handleConnect"
+      >
+        重新连接大屏
+      </button>
     </view>
 
     <view class="card debug-card">
@@ -55,7 +29,7 @@
             <text class="log-tag">{{ row.tag }}</text>
             <text class="log-msg">{{ row.msg }}</text>
           </view>
-          <text v-if="!debugLogs.length" class="log-empty">暂无日志，点击「连接」开始</text>
+          <text v-if="!debugLogs.length" class="log-empty">暂无日志，进入页面后将自动连接</text>
         </scroll-view>
       </view>
     </view>
@@ -97,7 +71,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { isH5Client } from '../../utils/platform.js'
 import {
-  RELAY_WS_DEFAULT,
+  resolveRelayWsUrl,
   RELAY_ROOM_ID_DEFAULT,
   RELAY_TOKEN_DEFAULT,
   RELAY_STORAGE_KEYS,
@@ -105,14 +79,14 @@ import {
 
 const BASE_URL = 'http://10.112.189.54:48080/admin-api'
 
-const relayWs = ref(RELAY_WS_DEFAULT)
+const relayWs = ref(resolveRelayWsUrl())
 const roomId = ref(RELAY_ROOM_ID_DEFAULT)
 const token = ref(RELAY_TOKEN_DEFAULT)
 const connecting = ref(false)
 const socketJoined = ref(false)
 const socketOpen = ref(false)
 const statusLine = ref('')
-const showDebug = ref(true)
+const showDebug = ref(false)
 const debugLogs = ref([])
 const logScrollTop = ref(0)
 
@@ -180,8 +154,7 @@ function loadRelayCredentials() {
   const savedWs = uni.getStorageSync(RELAY_STORAGE_KEYS.ws)
   const savedRoom = uni.getStorageSync(RELAY_STORAGE_KEYS.roomId)
   const savedToken = uni.getStorageSync(RELAY_STORAGE_KEYS.token)
-  relayWs.value =
-    typeof savedWs === 'string' && savedWs.trim() ? savedWs.trim() : RELAY_WS_DEFAULT
+  relayWs.value = resolveRelayWsUrl(typeof savedWs === 'string' ? savedWs : '')
   roomId.value = normalizeDigits4(
     typeof savedRoom === 'string' && savedRoom ? savedRoom : RELAY_ROOM_ID_DEFAULT,
   )
@@ -212,41 +185,6 @@ function canAutoConnect() {
   )
 }
 
-function pasteJoinInfo() {
-  uni.getClipboardData({
-    success: (res) => {
-      const text = String(res.data || '').trim()
-      if (!text) {
-        uni.showToast({ title: '剪贴板为空', icon: 'none' })
-        return
-      }
-      const roomMatch = text.match(/房间号[:：]\s*(\d{4})/)
-      const tokenMatch = text.match(/令牌[:：]\s*(\d{4})/)
-      if (roomMatch && tokenMatch) {
-        roomId.value = roomMatch[1]
-        token.value = tokenMatch[1]
-      } else {
-        const digits = text.match(/\d{4}/g)
-        if (digits?.length >= 2) {
-          roomId.value = digits[0]
-          token.value = digits[1]
-        } else if (digits?.length === 1) {
-          roomId.value = digits[0]
-        } else {
-          uni.showToast({ title: '未找到4位数字', icon: 'none' })
-          return
-        }
-      }
-      normalizeRoomFields()
-      persistRelayCredentials()
-      uni.showToast({ title: '已粘贴', icon: 'success' })
-    },
-    fail: () => {
-      uni.showToast({ title: '无法读取剪贴板', icon: 'none' })
-    },
-  })
-}
-
 const lessonId = ref(0)
 const planId = ref(0)
 const planTitle = ref('')
@@ -258,16 +196,25 @@ const planCount = computed(() => planIds.value.length)
 
 const getToken = () => uni.getStorageSync('token') || ''
 
+/** GET 参数拼进 URL，避免 data 里 number 被序列化时精度/偏移（如 itemId 少 1） */
+function buildUrlWithQuery(url, query) {
+  const parts = []
+  for (const [k, v] of Object.entries(query || {})) {
+    if (v === undefined || v === null || v === '') continue
+    parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+  }
+  return parts.length ? `${url}?${parts.join('&')}` : url
+}
+
 const requestGet = (url, data) =>
   new Promise((resolve, reject) => {
     uni.request({
-      url,
+      url: data ? buildUrlWithQuery(url, data) : url,
       method: 'GET',
       header: {
         Authorization: `Bearer ${getToken()}`,
         'Tenant-Id': '1',
       },
-      data,
       success: (res) => {
         if (res.statusCode === 200 && res.data?.code === 0) resolve(res.data.data || [])
         else reject(new Error(res.data?.msg || '请求失败'))
@@ -275,6 +222,28 @@ const requestGet = (url, data) =>
       fail: reject,
     })
   })
+
+/** list-by-plan 返回的项目 id，与资料管理页 itemId 一致（勿用 sortOrder / 数组下标） */
+function resolveProjectItemId(project) {
+  if (!project || typeof project !== 'object') return ''
+  const raw =
+    project.itemId != null && project.itemId !== '' ? project.itemId : project.id
+  if (raw == null || raw === '') return ''
+  const s = String(raw).trim()
+  if (!s || s === 'undefined' || s === 'null') return ''
+  return s
+}
+
+function comparePlanProjects(a, b) {
+  const ao = a.sortOrder
+  const bo = b.sortOrder
+  if (ao != null && bo != null && Number(ao) !== Number(bo)) {
+    return Number(ao) - Number(bo)
+  }
+  const ai = resolveProjectItemId(a)
+  const bi = resolveProjectItemId(b)
+  return ai.localeCompare(bi, undefined, { numeric: true })
+}
 
 function mapProjectToPlanItem(project, materials) {
   const ms = [...(materials || [])].sort(
@@ -284,9 +253,10 @@ function mapProjectToPlanItem(project, materials) {
   const videoUrl = typeof m.videoUrl === 'string' && m.videoUrl ? m.videoUrl : undefined
   const desc = m.description || m.title
   const instruction = typeof desc === 'string' && desc ? desc : undefined
+  const pid = resolveProjectItemId(project)
   const row = {
-    id: String(project.id),
-    title: project.itemName || `项目${project.id}`,
+    id: pid || String(project.id ?? ''),
+    title: project.itemName || `项目${pid || project.id}`,
     durationMin: Math.max(1, Math.round(Number(project.duration)) || 1),
   }
   if (videoUrl) row.videoUrl = videoUrl
@@ -299,18 +269,21 @@ async function fetchPlanPayloadForScreen(pid) {
   const projects = await requestGet(`${BASE_URL}/teaching/plan-project/list-by-plan`, {
     planId: pid,
   })
-  const sorted = [...projects].sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id))
+  const sorted = [...projects].sort(comparePlanProjects)
   const plan = await Promise.all(
     sorted.map(async (p) => {
-      const itemId = p.id
+      const itemId = resolveProjectItemId(p)
       let materials = []
-      try {
-        materials = await requestGet(`${BASE_URL}/teaching/plan-material/list-by-item`, {
-          planId: pid,
-          itemId,
-        })
-      } catch {
-        materials = []
+      if (itemId) {
+        try {
+          materials = await requestGet(`${BASE_URL}/teaching/plan-material/list-by-item`, {
+            planId: String(pid),
+            itemId,
+          })
+          pushLog('info', 'MATERIAL', `list-by-item planId=${pid} itemId=${itemId}`)
+        } catch {
+          materials = []
+        }
       }
       return mapProjectToPlanItem(p, materials)
     }),
@@ -347,6 +320,11 @@ function onSocketMessageHandler(res) {
       statusLine.value = '已加入房间'
       pushLog('ok', 'JOINED', `roomId=${msg.roomId}`, msg)
       persistRelayCredentials()
+      const authTok = getToken()
+      if (authTok) {
+        sendCmd('setMediaAuth', { token: authTok, tenantId: '1' })
+        pushLog('out', 'setMediaAuth', '已同步视频访问令牌')
+      }
       void pushSetPlan()
       return
     }
@@ -354,13 +332,20 @@ function onSocketMessageHandler(res) {
       planIds.value = msg.state.plan.map((p) => p.id)
       const idx = msg.state.plan.findIndex((p) => p.id === msg.state.currentItemId)
       if (idx >= 0) currentIndex.value = idx
-      pushLog('info', 'STATE', `plan=${msg.state.plan.length}项 paused=${msg.state.paused}`)
+      const cur = msg.state.plan.find((p) => p.id === msg.state.currentItemId) || msg.state.plan[0]
+      const hasToken = !!(msg.state.mediaBearerToken && String(msg.state.mediaBearerToken).length)
+      pushLog('info', 'STATE', `plan=${msg.state.plan.length} paused=${msg.state.paused} videoPlaying=${msg.state.videoPlaying}`)
+      pushLog('info', 'VIDEO', `token=${hasToken ? '有' : '无'} url=${cur?.videoUrl ? '有' : '无'}`, {
+        videoUrl: cur?.videoUrl || '',
+        tokenPrefix: hasToken ? String(msg.state.mediaBearerToken).slice(0, 8) : '',
+      })
       return
     }
     if (msg.type === 'state') {
       pushLog('info', 'STATE', '状态更新', {
         paused: msg.state?.paused,
         currentItemId: msg.state?.currentItemId,
+        videoPlaying: msg.state?.videoPlaying,
       })
       return
     }
@@ -417,20 +402,6 @@ function bindSocketListeners() {
   })
 }
 
-function handleDisconnect() {
-  pushLog('info', 'DISCONNECT', '主动断开')
-  clearSocketListeners()
-  try {
-    uni.closeSocket()
-  } catch {
-    /* noop */
-  }
-  socketJoined.value = false
-  connecting.value = false
-  socketOpen.value = false
-  statusLine.value = '已断开'
-}
-
 function handleConnect() {
   if (socketJoined.value) return
   normalizeRoomFields()
@@ -484,8 +455,19 @@ async function pushSetPlan() {
     }
     planIds.value = plan.map((p) => p.id)
     currentIndex.value = 0
-    sendCmd('setPlan', { plan, currentItemId: plan[0].id })
-    pushLog('out', 'setPlan', `下发 ${plan.length} 项`, { currentItemId: plan[0].id })
+    const mediaTok = getToken()
+    const withVideo = plan.filter((p) => p.videoUrl).length
+    sendCmd('setPlan', {
+      plan,
+      currentItemId: plan[0].id,
+      mediaBearerToken: mediaTok,
+    })
+    pushLog('out', 'setPlan', `下发 ${plan.length} 项，含视频 ${withVideo} 项`, {
+      currentItemId: plan[0].id,
+      videoUrl: plan[0].videoUrl || '(无)',
+      hasMediaToken: !!mediaTok,
+      tokenPrefix: mediaTok ? mediaTok.slice(0, 8) : '',
+    })
     uni.showToast({ title: '计划已下发', icon: 'success' })
   } catch (e) {
     console.error(e)
@@ -504,6 +486,7 @@ function shiftItem(delta) {
 
 function toggleVideo() {
   sendCmd('toggleVideo')
+  pushLog('out', 'toggleVideo', '已发送 视频开/关（大屏 videoPlaying 将切换）')
 }
 
 function endTraining() {
@@ -564,6 +547,18 @@ onUnmounted(() => {
   padding: 28rpx;
   margin-bottom: 24rpx;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.retry-btn {
+  margin-top: 8rpx;
+  width: 100%;
 }
 .card-title {
   font-size: 32rpx;

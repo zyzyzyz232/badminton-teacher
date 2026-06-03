@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "verify": "node scripts/verify-relay.mjs",
+    "verify:remote": "node scripts/verify-relay.mjs ws://10.112.189.54:3456",
+    "test:media": "node scripts/test-media-proxy.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

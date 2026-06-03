@@ -43,19 +43,12 @@
 						v-for="p in catalogItems"
 						:key="p.id"
 						class="lib-card"
-						:class="{ dragging: draggingCatalogId === p.id }"
-						:data-id="p.id"
-						@touchstart="onCatalogTouchStart($event, p)"
-						@touchmove.stop.prevent="onCatalogTouchMove"
-						@touchend="onCatalogTouchEnd"
-						@touchcancel="onCatalogTouchCancel"
-						@mousedown="onCatalogMouseDown($event, p)"
 					>
 						<text class="lib-name">{{ p.name }}</text>
 						<text v-if="p.durationMin != null" class="lib-meta">{{ p.durationMin }} 分钟</text>
 						<view class="lib-edit-wrap" @click.stop @mousedown.stop @touchstart.stop>
 							<text
-								v-if="isCatalogItemDraggable(p)"
+								v-if="isCatalogItemAddable(p)"
 								class="lib-add-btn"
 								@click.stop="onQuickAddToPlan(p)"
 							>加入计划</text>
@@ -63,7 +56,7 @@
 							<text v-if="isCatalogItemEditable(p)" class="lib-delete-btn" @click.stop="confirmDeleteProject(p)">删除</text>
 						</view>
 					</view>
-					<text class="lib-hint">拖入右侧计划区，或点击「加入计划」</text>
+					<text class="lib-hint">点击「加入计划」添加到右侧计划区</text>
 				</scroll-view>
 				<view class="new-block">
 					<text class="side-note-line only">新建项目</text>
@@ -77,27 +70,33 @@
 			<!-- 右侧：计划区 -->
 			<view class="col right">
 				<text class="col-title">计划区</text>
-				<text class="zone-hint">区内上下滑动条目可调整顺序</text>
-				<view id="plan-drop-zone" class="plan-zone">
+				<text class="zone-hint">使用 ↑ ↓ 调整顺序，保存后生效</text>
+				<view class="plan-zone">
 					<view
 						v-for="(row, index) in planRows"
 						:key="row._key"
 						class="plan-row"
-						:class="{ empty: !row.project, ghost: dragPlanFromIndex === index }"
-						@touchstart="onPlanRowTouchStart($event, index)"
-						@touchend="onPlanRowTouchEnd($event, index)"
+						:class="{ empty: !row.project }"
 					>
 						<text class="slot-num">{{ index + 1 }}</text>
 						<view v-if="row.project" class="plan-chip">
 							<text class="chip-text">{{ row.project.name }}</text>
 							<text v-if="row.project.durationMin != null" class="chip-dur">{{ row.project.durationMin }}′</text>
 						</view>
-						<text v-else class="placeholder">拖入项目</text>
-						<text
-							v-if="row.project"
-							class="remove-x"
-							@click.stop="removeAt(index)"
-						>×</text>
+						<text v-else class="placeholder">待添加项目</text>
+						<view v-if="row.project" class="row-actions">
+							<text
+								class="order-btn"
+								:class="{ disabled: !canMovePlanRowUp(index) }"
+								@click.stop="movePlanRowUp(index)"
+							>↑</text>
+							<text
+								class="order-btn"
+								:class="{ disabled: !canMovePlanRowDown(index) }"
+								@click.stop="movePlanRowDown(index)"
+							>↓</text>
+							<text class="remove-x" @click.stop="removeAt(index)">×</text>
+						</view>
 					</view>
 				</view>
 			</view>
@@ -110,9 +109,19 @@
 		<!-- 创建训练项目 -->
 		<view v-if="showCreateProject" class="modal-mask" @click="closeCreateProjectModal">
 			<view class="modal-box" @click.stop>
+				<view v-if="createProjectLoading" class="modal-loading" @click.stop>
+					<view class="modal-loading-inner">
+						<view class="loading-spinner" />
+						<text class="modal-loading-text">{{ createProjectLoadingText }}</text>
+					</view>
+				</view>
 				<view class="modal-head">
 					<text class="modal-title">创建训练项目</text>
-					<text class="modal-close" @click="closeCreateProjectModal">×</text>
+					<text
+						class="modal-close"
+						:class="{ disabled: createProjectLoading }"
+						@click="closeCreateProjectModal"
+					>×</text>
 				</view>
 				<view class="modal-body">
 					<view class="form-row">
@@ -219,8 +228,12 @@
 					</view>
 				</view>
 				<view class="modal-foot">
-					<button class="btn-cancel" @click="closeCreateProjectModal">取消</button>
-					<button class="btn-ok" @click="submitCreateProject">创建</button>
+					<button class="btn-cancel" :disabled="createProjectLoading" @click="closeCreateProjectModal">
+						取消
+					</button>
+					<button class="btn-ok" :disabled="createProjectLoading" @click="submitCreateProject">
+						创建
+					</button>
 				</view>
 			</view>
 		</view>
@@ -228,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onUnmounted } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
 	fetchTrainingProjectCatalogForArrange,
@@ -407,14 +420,9 @@ const catalogItems = ref([])
 /** 每行 { _key, project: { id, name, durationMin } | null } */
 const planRows = ref([])
 
-const draggingCatalogId = ref(null)
-const dragCatalogStart = ref({ x: 0, y: 0 })
-let catalogMoved = false
-
-const dragPlanFromIndex = ref(-1)
-const planRowTouchStartY = ref(0)
-
 const showCreateProject = ref(false)
+const createProjectLoading = ref(false)
+const createProjectLoadingText = ref('')
 const projectForm = ref({
 	itemName: '',
 	itemContent: '',
@@ -462,26 +470,16 @@ function isCatalogItemEditable(p) {
 	return Number.isFinite(n) && n > 0
 }
 
-/** 判断项目是否可拖动 */
-function isCatalogItemDraggable(p) {
+/** 判断项目是否可加入计划 */
+function isCatalogItemAddable(p) {
 	if (!p || p.id == null) return false
 	const s = String(p.id)
 	if (s.startsWith('tmp_') || s.startsWith('new_')) return false
 	return true
 }
 
-function getPointerXY(e) {
-	if (e.touches && e.touches.length) {
-		return { x: e.touches[0].clientX, y: e.touches[0].clientY }
-	}
-	if (e.changedTouches && e.changedTouches.length) {
-		return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
-	}
-	return { x: e.clientX, y: e.clientY }
-}
-
 async function onQuickAddToPlan(p) {
-	if (!isCatalogItemDraggable(p)) return
+	if (!isCatalogItemAddable(p)) return
 	await attachCatalogItemToPlan(p)
 }
 
@@ -531,18 +529,7 @@ function confirmDeleteProject(p) {
 	})
 }
 
-function addProjectToFirstEmpty(project) {
-	ensureTrailingEmpty()
-	const idx = planRows.value.findIndex((r) => !r.project)
-	if (idx >= 0) {
-		planRows.value[idx] = { _key: planRows.value[idx]._key, project: { ...project } }
-	} else {
-		planRows.value.push({ _key: genKey(), project: { ...project } })
-	}
-	ensureTrailingEmpty()
-}
-
-/** 点击/拖入左侧：演示项走新建+关联；已有服务端 id 走 associate-plan */
+/** 点击「加入计划」：演示项走新建+关联；已有服务端 id 走 associate-plan */
 async function attachCatalogItemToPlan(item) {
 	const name = (item && item.name ? String(item.name) : '').trim()
 	if (!name) {
@@ -589,118 +576,6 @@ async function attachCatalogItemToPlan(item) {
 	}
 }
 
-function isPointInPlanZone(clientX, clientY) {
-	return new Promise((resolve) => {
-		uni.createSelectorQuery()
-			.select('#plan-drop-zone')
-			.boundingClientRect()
-			.exec((res) => {
-				const rect = res && res[0]
-				if (!rect || typeof rect.left !== 'number') {
-					resolve(false)
-					return
-				}
-				const inside =
-					clientX >= rect.left &&
-					clientX <= rect.right &&
-					clientY >= rect.top &&
-					clientY <= rect.bottom
-				resolve(inside)
-			})
-	})
-}
-
-function startCatalogDrag(e, p) {
-	if (!isCatalogItemDraggable(p)) {
-		draggingCatalogId.value = null
-		return
-	}
-	draggingCatalogId.value = p.id
-	catalogMoved = false
-	const pt = getPointerXY(e)
-	dragCatalogStart.value = { x: pt.x, y: pt.y }
-}
-
-function onCatalogTouchStart(e, p) {
-	startCatalogDrag(e, p)
-}
-
-function onCatalogTouchMove(e) {
-	if (!draggingCatalogId.value) return
-	const pt = getPointerXY(e)
-	const dx = pt.x - dragCatalogStart.value.x
-	const dy = pt.y - dragCatalogStart.value.y
-	if (Math.abs(dx) + Math.abs(dy) > 12) catalogMoved = true
-}
-
-async function finishCatalogDrag(e) {
-	const id = draggingCatalogId.value
-	draggingCatalogId.value = null
-	if (!id) return
-	const pt = getPointerXY(e)
-	const inside = await isPointInPlanZone(pt.x, pt.y)
-	const item = catalogItems.value.find((x) => x.id === id)
-	if (!item) {
-		catalogMoved = false
-		return
-	}
-	if (inside) {
-		await attachCatalogItemToPlan(item)
-	}
-	catalogMoved = false
-}
-
-async function onCatalogTouchEnd(e) {
-	await finishCatalogDrag(e)
-}
-
-function onCatalogTouchCancel() {
-	draggingCatalogId.value = null
-	catalogMoved = false
-}
-
-let docMouseMoveHandler = null
-let docMouseUpHandler = null
-
-function cleanupDocMouseListeners() {
-	if (typeof document === 'undefined') return
-	if (docMouseMoveHandler) {
-		document.removeEventListener('mousemove', docMouseMoveHandler)
-		docMouseMoveHandler = null
-	}
-	if (docMouseUpHandler) {
-		document.removeEventListener('mouseup', docMouseUpHandler)
-		docMouseUpHandler = null
-	}
-}
-
-function onCatalogMouseDown(e, p) {
-	if (e.button !== 0) return
-	if (!isCatalogItemDraggable(p)) return
-	startCatalogDrag(e, p)
-	if (typeof document === 'undefined') return
-	cleanupDocMouseListeners()
-	docMouseMoveHandler = (ev) => onCatalogTouchMove(ev)
-	docMouseUpHandler = (ev) => {
-		finishCatalogDrag(ev)
-		cleanupDocMouseListeners()
-	}
-	document.addEventListener('mousemove', docMouseMoveHandler)
-	document.addEventListener('mouseup', docMouseUpHandler)
-}
-
-onUnmounted(() => {
-	cleanupDocMouseListeners()
-})
-
-function onPlanRowTouchStart(e, index) {
-	const row = planRows.value[index]
-	if (!row?.project) return
-	dragPlanFromIndex.value = index
-	const t = e.touches[0]
-	planRowTouchStartY.value = t.clientY
-}
-
 function swapRows(i, j) {
 	const a = planRows.value[i]
 	const b = planRows.value[j]
@@ -711,22 +586,37 @@ function swapRows(i, j) {
 	b.project = tmp
 }
 
-function onPlanRowTouchEnd(e, index) {
-	if (dragPlanFromIndex.value !== index) return
-	const t = e.changedTouches[0]
-	const dy = t.clientY - planRowTouchStartY.value
-	dragPlanFromIndex.value = -1
+function canMovePlanRowUp(index) {
+	if (index <= 0) return false
 	const cur = planRows.value[index]
-	if (!cur?.project) return
-	if (dy < -36 && index > 0) {
-		swapRows(index, index - 1)
-	} else if (dy > 36 && index < planRows.value.length - 1) {
-		const next = planRows.value[index + 1]
-		if (next?.project) swapRows(index, index + 1)
-		else if (next && !next.project) {
-			next.project = cur.project
-			cur.project = null
-		}
+	const prev = planRows.value[index - 1]
+	return !!(cur?.project && prev?.project)
+}
+
+function canMovePlanRowDown(index) {
+	if (index >= planRows.value.length - 1) return false
+	const cur = planRows.value[index]
+	const next = planRows.value[index + 1]
+	if (!cur?.project) return false
+	if (next?.project) return true
+	return !!(next && !next.project)
+}
+
+function movePlanRowUp(index) {
+	if (!canMovePlanRowUp(index)) return
+	swapRows(index, index - 1)
+}
+
+function movePlanRowDown(index) {
+	if (!canMovePlanRowDown(index)) return
+	const cur = planRows.value[index]
+	const next = planRows.value[index + 1]
+	if (next?.project) {
+		swapRows(index, index + 1)
+	} else if (next && cur?.project) {
+		next.project = cur.project
+		cur.project = null
+		ensureTrailingEmpty()
 	}
 }
 
@@ -879,7 +769,18 @@ function openCreateProjectModal() {
 }
 
 function closeCreateProjectModal() {
+	if (createProjectLoading.value) return
 	showCreateProject.value = false
+}
+
+function setCreateProjectLoading(text) {
+	createProjectLoadingText.value = text
+	createProjectLoading.value = true
+}
+
+function clearCreateProjectLoading() {
+	createProjectLoading.value = false
+	createProjectLoadingText.value = ''
 }
 
 function onItemTypePick(e) {
@@ -997,7 +898,7 @@ async function submitCreateProject() {
 
 	let createStage = 'init'
 	try {
-		uni.showLoading({ title: '创建项目…' })
+		setCreateProjectLoading('正在创建项目…')
 		createStage = 'createPlanProject'
 		const createdId = await createPlanProject(payload)
 		const itemId = extractPlanProjectItemId(createdId)
@@ -1010,7 +911,7 @@ async function submitCreateProject() {
 			throw new Error('创建成功但未返回项目 id')
 		}
 
-		uni.showLoading({ title: '上传资料…' })
+		setCreateProjectLoading('正在上传资料…')
 		createStage = 'uploadPlanMaterialFile'
 		const uploadData = await uploadPlanMaterialFile({
 			filePath: projectForm.value.materialTempPath,
@@ -1030,7 +931,7 @@ async function submitCreateProject() {
 			throw new Error('上传未返回文件地址，无法登记资料')
 		}
 
-		uni.showLoading({ title: '登记资料…' })
+		setCreateProjectLoading('正在登记资料…')
 		createStage = 'createPlanMaterial'
 		const matBody = {
 			...(hasPlanId ? { planId: pid } : {}),
@@ -1076,7 +977,7 @@ async function submitCreateProject() {
 		})
 		uni.showToast({ title: msg, icon: 'none', duration: 2800 })
 	} finally {
-		uni.hideLoading()
+		clearCreateProjectLoading()
 	}
 }
 
@@ -1299,17 +1200,6 @@ onShow(async () => {
 	border-radius: 16rpx;
 	padding: 16rpx 14rpx;
 	margin-bottom: 12rpx;
-	cursor: grab;
-	user-select: none;
-}
-
-.lib-card.new {
-	cursor: pointer;
-}
-
-.lib-card.dragging {
-	opacity: 0.65;
-	border-color: #1677ff;
 }
 
 .lib-card.new {
@@ -1417,8 +1307,27 @@ onShow(async () => {
 	background: rgba(255, 255, 255, 0.65);
 }
 
-.plan-row.ghost {
-	opacity: 0.85;
+.row-actions {
+	display: flex;
+	align-items: center;
+	gap: 8rpx;
+	flex-shrink: 0;
+}
+
+.order-btn {
+	width: 48rpx;
+	height: 48rpx;
+	line-height: 48rpx;
+	text-align: center;
+	font-size: 28rpx;
+	color: #1677ff;
+	background: #e6f4ff;
+	border-radius: 8rpx;
+}
+
+.order-btn.disabled {
+	opacity: 0.35;
+	pointer-events: none;
 }
 
 .slot-num {
@@ -1520,6 +1429,7 @@ onShow(async () => {
 }
 
 .modal-box {
+	position: relative;
 	width: 100%;
 	max-width: 640rpx;
 	max-height: 85vh;
@@ -1528,6 +1438,53 @@ onShow(async () => {
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+}
+
+.modal-loading {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	z-index: 20;
+	background: rgba(255, 255, 255, 0.88);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal-loading-inner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 24rpx;
+	padding: 40rpx;
+}
+
+.loading-spinner {
+	width: 72rpx;
+	height: 72rpx;
+	border: 6rpx solid #e8e8e8;
+	border-top-color: #07c160;
+	border-radius: 50%;
+	animation: create-project-spin 0.75s linear infinite;
+}
+
+.modal-loading-text {
+	font-size: 28rpx;
+	color: #333;
+	text-align: center;
+}
+
+@keyframes create-project-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.modal-close.disabled {
+	opacity: 0.35;
+	pointer-events: none;
 }
 
 .modal-head {
@@ -1674,5 +1631,9 @@ onShow(async () => {
 .btn-ok {
 	background: linear-gradient(135deg, #07c160, #0ebf8c);
 	color: #fff;
+}
+
+.modal-foot button[disabled] {
+	opacity: 0.5;
 }
 </style>

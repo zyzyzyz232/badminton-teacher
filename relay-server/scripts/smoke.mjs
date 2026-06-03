@@ -3,15 +3,26 @@ import WebSocket from 'ws'
 const url = process.env.RELAY_URL || 'ws://127.0.0.1:3456'
 
 const display = new WebSocket(url)
+const PINNED_ROOM = '1001'
+const PINNED_TOKEN = '2002'
+
 display.on('open', () => {
-  display.send(JSON.stringify({ type: 'join', role: 'display' }))
+  display.send(
+    JSON.stringify({
+      type: 'join',
+      role: 'display',
+      roomId: PINNED_ROOM,
+      token: PINNED_TOKEN,
+    }),
+  )
 })
 
 display.on('message', (raw) => {
   const msg = JSON.parse(String(raw))
   console.log('display <-', msg.type)
   if (msg.type !== 'joined' || msg.role !== 'display') return
-  const { roomId, token } = msg
+  const roomId = msg.roomId || PINNED_ROOM
+  const token = msg.token || PINNED_TOKEN
   const mobile = new WebSocket(url)
   mobile.on('open', () => {
     mobile.send(JSON.stringify({ type: 'join', role: 'mobile', roomId, token }))

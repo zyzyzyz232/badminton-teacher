@@ -50,7 +50,8 @@ export type SessionCommand =
   | { kind: 'toggleSkeleton' }
   | { kind: 'toggleErrorOverlay' }
   | { kind: 'resetBlockTimer' }
-  | { kind: 'setPlan'; plan: PlanItem[]; currentItemId?: string }
+  | { kind: 'setPlan'; plan: PlanItem[]; currentItemId?: string; mediaBearerToken?: string }
+  | { kind: 'setMediaAuth'; token: string; tenantId?: string }
 
 export function applyCommand(s: SessionState, cmd: SessionCommand): SessionState {
   switch (cmd.kind) {
@@ -89,6 +90,12 @@ export function applyCommand(s: SessionState, cmd: SessionCommand): SessionState
       if (!item) return s
       return { ...s, blockRemainingSec: item.durationMin * 60 }
     }
+    case 'setMediaAuth':
+      return {
+        ...s,
+        mediaBearerToken: cmd.token,
+        ...(cmd.tenantId ? { mediaTenantId: cmd.tenantId } : {}),
+      }
     case 'setPlan': {
       const plan = cmd.plan
       if (plan.length === 0) return s
@@ -104,6 +111,7 @@ export function applyCommand(s: SessionState, cmd: SessionCommand): SessionState
         blockRemainingSec: item.durationMin * 60,
         videoPlaying: false,
         paused: true,
+        mediaBearerToken: cmd.mediaBearerToken ?? s.mediaBearerToken,
       }
     }
     default:
@@ -142,6 +150,20 @@ export function parseWireCommand(
       return { kind: 'toggleErrorOverlay' }
     case 'resetBlockTimer':
       return { kind: 'resetBlockTimer' }
+    case 'setMediaAuth': {
+      const token =
+        typeof payload?.token === 'string'
+          ? payload.token.trim()
+          : typeof payload?.mediaBearerToken === 'string'
+            ? payload.mediaBearerToken.trim()
+            : ''
+      if (!token) return null
+      const tenantId =
+        typeof payload?.tenantId === 'string' && payload.tenantId.trim()
+          ? payload.tenantId.trim()
+          : undefined
+      return { kind: 'setMediaAuth', token, tenantId }
+    }
     case 'setPlan': {
       const raw = payload?.plan
       if (!Array.isArray(raw) || raw.length === 0) return null
@@ -153,7 +175,11 @@ export function parseWireCommand(
       if (plan.length === 0) return null
       const currentItemId =
         typeof payload?.currentItemId === 'string' ? payload.currentItemId : undefined
-      return { kind: 'setPlan', plan, currentItemId }
+      const mediaBearerToken =
+        typeof payload?.mediaBearerToken === 'string' && payload.mediaBearerToken.trim()
+          ? payload.mediaBearerToken.trim()
+          : undefined
+      return { kind: 'setPlan', plan, currentItemId, mediaBearerToken }
     }
     default:
       return null
