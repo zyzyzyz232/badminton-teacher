@@ -1,27 +1,113 @@
 <template>
   <view class="page">
-    <view v-if="!socketJoined" class="card status-card">
-      <view class="conn-badge" :class="phaseClass">{{ phaseLabel }}</view>
-      <text v-if="statusLine" class="status">{{ statusLine }}</text>
+    <!-- 顶部状态栏 -->
+    <view class="header-bar" :class="{ connected: socketJoined }">
+      <view class="header-content">
+        <text class="header-title">{{ socketJoined ? '已连接大屏' : '大屏遥控' }}</text>
+        <view class="conn-badge" :class="phaseClass">{{ phaseLabel }}</view>
+      </view>
+      <text v-if="statusLine" class="status-text">{{ statusLine }}</text>
+    </view>
+
+    <!-- 未连接时显示连接按钮 -->
+    <view v-if="!socketJoined" class="connect-section">
+      <view class="connect-icon">
+        <text class="icon-rocket">🚀</text>
+      </view>
+      <text class="connect-hint">请确保大屏已开启并显示房间号</text>
       <button
-        v-if="!connecting && connectionPhase !== 'open'"
-        class="btn primary retry-btn"
+        class="btn-connect"
+        :disabled="connecting"
         @click="handleConnect"
       >
-        重新连接大屏
+        <text class="btn-icon">📱</text>
+        <text class="btn-text">{{ connecting ? '连接中…' : '连接大屏' }}</text>
       </button>
     </view>
 
-    <view class="card debug-card">
+    <!-- 已连接：计划信息 -->
+    <view v-if="socketJoined" class="plan-section">
+      <view class="plan-header">
+        <text class="plan-title">{{ planTitle || '训练计划' }}</text>
+        <text class="plan-count">共 {{ planCount }} 个训练项</text>
+      </view>
+      <button class="btn-refresh" :disabled="loadingPlan" @click="pushSetPlan">
+        <text class="btn-icon">🔄</text>
+        <text class="btn-text">{{ loadingPlan ? '加载中…' : '重新下发计划' }}</text>
+      </button>
+    </view>
+
+    <!-- 已连接：训练控制面板 -->
+    <view v-if="socketJoined && planIds.length" class="control-panel">
+      <text class="panel-title">训练控制</text>
+      
+      <!-- 当前项目指示 -->
+      <view class="current-item">
+        <text class="current-label">当前项目</text>
+        <text class="current-num">{{ currentIndex + 1 }} / {{ planCount }}</text>
+      </view>
+
+      <!-- 主控制按钮 -->
+      <view class="control-main">
+        <button class="ctrl-btn start" @click="sendCmd('resume')">
+          <text class="ctrl-icon">▶</text>
+          <text class="ctrl-text">开始</text>
+        </button>
+        <button class="ctrl-btn pause" @click="sendCmd('pause')">
+          <text class="ctrl-icon">⏸</text>
+          <text class="ctrl-text">暂停</text>
+        </button>
+      </view>
+
+      <!-- 项目切换 -->
+      <view class="control-nav">
+        <button 
+          class="ctrl-btn nav" 
+          :disabled="currentIndex <= 0" 
+          @click="shiftItem(-1)"
+        >
+          <text class="ctrl-icon">◀</text>
+          <text class="ctrl-text">上一项</text>
+        </button>
+        <button 
+          class="ctrl-btn nav" 
+          :disabled="currentIndex >= planIds.length - 1" 
+          @click="shiftItem(1)"
+        >
+          <text class="ctrl-text">下一项</text>
+          <text class="ctrl-icon">▶</text>
+        </button>
+      </view>
+
+      <!-- 辅助控制 -->
+      <view class="control-aux">
+        <button class="ctrl-btn aux" @click="sendCmd('resetBlockTimer')">
+          <text class="ctrl-icon">⏱</text>
+          <text class="ctrl-text">重置计时</text>
+        </button>
+        <button class="ctrl-btn aux" @click="toggleVideo">
+          <text class="ctrl-icon">🎬</text>
+          <text class="ctrl-text">视频开关</text>
+        </button>
+      </view>
+
+      <!-- 结束训练 -->
+      <button class="ctrl-btn danger" @click="endTraining">
+        <text class="ctrl-icon">⏹</text>
+        <text class="ctrl-text">结束训练</text>
+      </button>
+    </view>
+
+    <!-- 调试面板（可折叠） -->
+    <view class="debug-card">
       <view class="debug-head" @click="showDebug = !showDebug">
-        <text class="card-title">连接调试</text>
-        <text class="debug-toggle">{{ showDebug ? '收起' : '展开' }}</text>
+        <text class="debug-title">连接调试</text>
+        <text class="debug-toggle">{{ showDebug ? '收起 ▲' : '展开 ▼' }}</text>
       </view>
       <view v-if="showDebug" class="debug-body">
-        <text class="debug-tip">Web 端 WS 填电脑局域网 IP；手机勿用 127.0.0.1</text>
         <view class="debug-actions">
-          <button class="btn small" @click="clearDebugLogs">清空日志</button>
-          <button class="btn small" :disabled="!socketJoined" @click="sendPingState">拉取状态</button>
+          <button class="btn-small" @click="clearDebugLogs">清空日志</button>
+          <button class="btn-small" :disabled="!socketJoined" @click="sendPingState">拉取状态</button>
         </view>
         <scroll-view scroll-y class="debug-log" :scroll-top="logScrollTop">
           <view v-for="(row, i) in debugLogs" :key="i" class="log-row" :class="'log-' + row.level">
@@ -31,37 +117,6 @@
           </view>
           <text v-if="!debugLogs.length" class="log-empty">暂无日志，进入页面后将自动连接</text>
         </scroll-view>
-      </view>
-    </view>
-
-    <view v-if="socketJoined" class="card">
-      <text class="card-title">计划 · {{ planTitle }}</text>
-      <text class="hint">已下发 {{ planCount }} 个训练项</text>
-      <button class="btn" :disabled="loadingPlan" @click="pushSetPlan">
-        {{ loadingPlan ? '加载中…' : '重新下发计划' }}
-      </button>
-    </view>
-
-    <view v-if="socketJoined && planIds.length" class="card">
-      <text class="card-title">训练控制</text>
-      <view class="row">
-        <button class="btn small" @click="sendCmd('resume')">开始</button>
-        <button class="btn small" @click="sendCmd('pause')">暂停</button>
-        <button class="btn small" @click="sendCmd('resetBlockTimer')">重置本项计时</button>
-      </view>
-      <view class="row">
-        <button class="btn small" :disabled="currentIndex <= 0" @click="shiftItem(-1)">上一项</button>
-        <button
-          class="btn small"
-          :disabled="currentIndex >= planIds.length - 1"
-          @click="shiftItem(1)"
-        >
-          下一项
-        </button>
-      </view>
-      <view class="row">
-        <button class="btn small" @click="toggleVideo">视频 开/关</button>
-        <button class="btn small danger" @click="endTraining">结束训练</button>
       </view>
     </view>
   </view>
@@ -545,201 +600,416 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh;
-  background: #f5f7fa;
-  padding: 24rpx;
-  padding-bottom: 80rpx;
-}
-.card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 28rpx;
-  margin-bottom: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, #f0f4f8 0%, #e8f0f8 100%);
+  padding: 0;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 }
 
-.status-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 16rpx;
+/* 顶部状态栏 */
+.header-bar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40rpx 32rpx 32rpx;
+  position: relative;
+  
+  &.connected {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  }
 }
 
-.retry-btn {
-  margin-top: 8rpx;
-  width: 100%;
-}
-.card-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
-}
-.field {
-  margin-bottom: 20rpx;
-}
-.label {
-  font-size: 24rpx;
-  color: #666;
-  display: block;
-  margin-bottom: 8rpx;
-}
-.input {
-  border: 1px solid #e5e5e5;
-  border-radius: 8rpx;
-  padding: 16rpx;
-  font-size: 28rpx;
-}
-.code-input {
-  font-family: ui-monospace, monospace;
-  font-size: 36rpx;
-  letter-spacing: 0.2em;
-  text-align: center;
-}
-.field-hint {
-  display: block;
-  font-size: 22rpx;
-  color: #d48806;
-  line-height: 1.5;
-  margin-top: -8rpx;
-  margin-bottom: 8rpx;
-}
-.btn {
-  margin-top: 12rpx;
-  background: #f0f0f0;
-  color: #333;
-  font-size: 28rpx;
-}
-.btn.primary {
-  background: #07c160;
-  color: #fff;
-}
-.btn.small {
-  margin: 8rpx 8rpx 0 0;
-  font-size: 26rpx;
-  padding: 12rpx 20rpx;
-}
-.btn.danger {
-  background: #fff1f0;
-  color: #cf1322;
-}
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 8rpx;
-}
-.status {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 24rpx;
-  color: #888;
-}
-.hint {
-  font-size: 24rpx;
-  color: #666;
-  display: block;
-  margin-bottom: 12rpx;
-}
-.conn-badge {
-  display: inline-block;
-  margin-top: 16rpx;
-  padding: 6rpx 16rpx;
-  border-radius: 8rpx;
-  font-size: 22rpx;
-  font-weight: bold;
-}
-.phase-idle {
-  background: #f5f5f5;
-  color: #999;
-}
-.phase-connecting {
-  background: #fff7e6;
-  color: #d48806;
-}
-.phase-open {
-  background: #e6f7ff;
-  color: #096dd9;
-}
-.phase-joined {
-  background: #f6ffed;
-  color: #389e0d;
-}
-.debug-card {
-  padding-bottom: 16rpx;
-}
-.debug-head {
+.header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.debug-head .card-title {
-  margin-bottom: 0;
+
+.header-title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #fff;
 }
-.debug-toggle {
-  font-size: 24rpx;
-  color: #07c160;
-}
-.debug-body {
-  margin-top: 16rpx;
-}
-.debug-tip {
+
+.status-text {
   display: block;
-  font-size: 22rpx;
-  color: #d48806;
-  margin-bottom: 12rpx;
-  line-height: 1.5;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
 }
+
+.conn-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.phase-idle { background: rgba(255, 255, 255, 0.2); }
+.phase-connecting { background: rgba(255, 193, 7, 0.4); }
+.phase-open { background: rgba(33, 150, 243, 0.4); }
+.phase-joined { background: rgba(76, 175, 80, 0.4); }
+
+/* 连接区域 */
+.connect-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 40rpx;
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+}
+
+.connect-icon {
+  width: 160rpx;
+  height: 160rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+  box-shadow: 0 12rpx 40rpx rgba(102, 126, 234, 0.4);
+}
+
+.icon-rocket {
+  font-size: 72rpx;
+}
+
+.connect-hint {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 40rpx;
+  text-align: center;
+}
+
+.btn-connect {
+  width: 100%;
+  height: 108rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 54rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+  
+  &[disabled] {
+    opacity: 0.7;
+  }
+}
+
+.btn-connect .btn-icon {
+  font-size: 36rpx;
+  margin-right: 12rpx;
+}
+
+.btn-connect .btn-text {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* 计划信息区 */
+.plan-section {
+  margin: 24rpx;
+  padding: 28rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+}
+
+.plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.plan-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.plan-count {
+  font-size: 26rpx;
+  color: #666;
+  background: #f0f4f8;
+  padding: 6rpx 16rpx;
+  border-radius: 16rpx;
+}
+
+.btn-refresh {
+  width: 100%;
+  height: 88rpx;
+  background: #f0f4f8;
+  border-radius: 44rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &[disabled] {
+    opacity: 0.6;
+  }
+}
+
+.btn-refresh .btn-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+}
+
+.btn-refresh .btn-text {
+  font-size: 30rpx;
+  color: #333;
+}
+
+/* 控制面板 */
+.control-panel {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+}
+
+.panel-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.current-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-radius: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.current-label {
+  font-size: 28rpx;
+  color: #388e3c;
+}
+
+.current-num {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+/* 控制按钮样式 */
+.ctrl-btn {
+  width: 100%;
+  height: 108rpx;
+  border-radius: 24rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  transition: all 0.2s;
+  
+  &[disabled] {
+    opacity: 0.4;
+  }
+}
+
+.ctrl-icon {
+  font-size: 40rpx;
+  margin-right: 16rpx;
+}
+
+.ctrl-text {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+/* 主控制按钮 */
+.control-main {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  
+  .ctrl-btn {
+    flex: 1;
+  }
+  
+  .start {
+    background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+    color: #fff;
+    box-shadow: 0 8rpx 24rpx rgba(67, 160, 71, 0.35);
+  }
+  
+  .pause {
+    background: linear-gradient(135deg, #fb8c00 0%, #ffa726 100%);
+    color: #fff;
+    box-shadow: 0 8rpx 24rpx rgba(251, 140, 0, 0.35);
+  }
+}
+
+/* 导航按钮 */
+.control-nav {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  
+  .ctrl-btn {
+    flex: 1;
+    background: #e3f2fd;
+    color: #1565c0;
+    
+    &:not([disabled]):active {
+      background: #bbdefb;
+    }
+  }
+}
+
+/* 辅助按钮 */
+.control-aux {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  
+  .ctrl-btn {
+    flex: 1;
+    height: 92rpx;
+    background: #f5f5f5;
+    color: #666;
+    
+    .ctrl-icon {
+      font-size: 36rpx;
+    }
+    
+    .ctrl-text {
+      font-size: 28rpx;
+    }
+  }
+}
+
+/* 危险按钮 */
+.ctrl-btn.danger {
+  background: linear-gradient(135deg, #e53935 0%, #ef5350 100%);
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(229, 57, 53, 0.35);
+  margin-top: 8rpx;
+}
+
+/* 调试面板 */
+.debug-card {
+  margin: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+}
+
+.debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx;
+  background: #fafafa;
+}
+
+.debug-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #666;
+}
+
+.debug-toggle {
+  font-size: 26rpx;
+  color: #1976d2;
+}
+
+.debug-body {
+  padding: 20rpx;
+}
+
 .debug-actions {
   display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 12rpx;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
 }
+
+.btn-small {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 26rpx;
+  background: #f5f5f5;
+  color: #666;
+  border-radius: 12rpx;
+  border: none;
+  
+  &[disabled] {
+    opacity: 0.5;
+  }
+}
+
 .debug-log {
-  max-height: 360rpx;
+  max-height: 320rpx;
   background: #1e1e1e;
-  border-radius: 8rpx;
-  padding: 12rpx;
+  border-radius: 12rpx;
+  padding: 16rpx;
 }
+
 .log-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8rpx;
   margin-bottom: 8rpx;
   font-size: 20rpx;
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-all;
 }
+
 .log-time {
   color: #888;
   flex-shrink: 0;
 }
+
 .log-tag {
   color: #61dafb;
   flex-shrink: 0;
   font-weight: bold;
 }
+
 .log-msg {
   color: #ddd;
   flex: 1;
 }
-.log-out .log-tag {
-  color: #98c379;
-}
-.log-in .log-tag {
-  color: #e5c07b;
-}
-.log-ok .log-tag {
-  color: #98c379;
-}
+
+.log-out .log-tag { color: #98c379; }
+.log-in .log-tag { color: #e5c07b; }
+.log-ok .log-tag { color: #98c379; }
 .log-error .log-tag,
-.log-error .log-msg {
-  color: #e06c75;
-}
-.log-warn .log-tag {
-  color: #d19a66;
-}
+.log-error .log-msg { color: #e06c75; }
+.log-warn .log-tag { color: #d19a66; }
+
 .log-empty {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #888;
+  text-align: center;
+  display: block;
+  padding: 20rpx 0;
+}
+
+/* 按钮点击效果 */
+.ctrl-btn:active:not([disabled]) {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.btn-connect:active:not([disabled]) {
+  transform: scale(0.98);
 }
 </style>

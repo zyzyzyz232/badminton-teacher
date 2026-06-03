@@ -55,7 +55,7 @@ const _sfc_main = {
       if (debugLogs.value.length > 80)
         debugLogs.value.shift();
       logScrollTop.value = debugLogs.value.length * 999;
-      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:133", `[screen-control][${tag}]`, msg, detail ?? "");
+      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:188", `[screen-control][${tag}]`, msg, detail ?? "");
     }
     function clearDebugLogs() {
       debugLogs.value = [];
@@ -210,7 +210,7 @@ const _sfc_main = {
       } catch (e) {
         statusLine.value = "发送失败";
         pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:306", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:361", e);
       }
     }
     function sendPingState() {
@@ -343,7 +343,7 @@ const _sfc_main = {
           socketOpen.value = false;
           statusLine.value = "无法发起连接";
           pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:444", err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:499", err);
         }
       });
     }
@@ -379,7 +379,7 @@ const _sfc_main = {
         });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:481", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:536", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;
@@ -440,26 +440,50 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: !socketJoined.value
-      }, !socketJoined.value ? common_vendor.e({
+        a: common_vendor.t(socketJoined.value ? "已连接大屏" : "大屏遥控"),
         b: common_vendor.t(phaseLabel.value),
         c: common_vendor.n(phaseClass.value),
         d: statusLine.value
       }, statusLine.value ? {
         e: common_vendor.t(statusLine.value)
       } : {}, {
-        f: !connecting.value && connectionPhase.value !== "open"
-      }, !connecting.value && connectionPhase.value !== "open" ? {
-        g: common_vendor.o(handleConnect, "e0")
-      } : {}) : {}, {
-        h: common_vendor.t(showDebug.value ? "收起" : "展开"),
-        i: common_vendor.o(($event) => showDebug.value = !showDebug.value, "66"),
-        j: showDebug.value
+        f: socketJoined.value ? 1 : "",
+        g: !socketJoined.value
+      }, !socketJoined.value ? {
+        h: common_vendor.t(connecting.value ? "连接中…" : "连接大屏"),
+        i: connecting.value,
+        j: common_vendor.o(handleConnect, "71")
+      } : {}, {
+        k: socketJoined.value
+      }, socketJoined.value ? {
+        l: common_vendor.t(planTitle.value || "训练计划"),
+        m: common_vendor.t(planCount.value),
+        n: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
+        o: loadingPlan.value,
+        p: common_vendor.o(pushSetPlan, "11")
+      } : {}, {
+        q: socketJoined.value && planIds.value.length
+      }, socketJoined.value && planIds.value.length ? {
+        r: common_vendor.t(currentIndex.value + 1),
+        s: common_vendor.t(planCount.value),
+        t: common_vendor.o(($event) => sendCmd("resume"), "a5"),
+        v: common_vendor.o(($event) => sendCmd("pause"), "be"),
+        w: currentIndex.value <= 0,
+        x: common_vendor.o(($event) => shiftItem(-1), "2c"),
+        y: currentIndex.value >= planIds.value.length - 1,
+        z: common_vendor.o(($event) => shiftItem(1), "5e"),
+        A: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "38"),
+        B: common_vendor.o(toggleVideo, "3c"),
+        C: common_vendor.o(endTraining, "7c")
+      } : {}, {
+        D: common_vendor.t(showDebug.value ? "收起 ▲" : "展开 ▼"),
+        E: common_vendor.o(($event) => showDebug.value = !showDebug.value, "a8"),
+        F: showDebug.value
       }, showDebug.value ? common_vendor.e({
-        k: common_vendor.o(clearDebugLogs, "9c"),
-        l: !socketJoined.value,
-        m: common_vendor.o(sendPingState, "6d"),
-        n: common_vendor.f(debugLogs.value, (row, i, i0) => {
+        G: common_vendor.o(clearDebugLogs, "87"),
+        H: !socketJoined.value,
+        I: common_vendor.o(sendPingState, "47"),
+        J: common_vendor.f(debugLogs.value, (row, i, i0) => {
           return {
             a: common_vendor.t(row.time),
             b: common_vendor.t(row.tag),
@@ -468,30 +492,10 @@ const _sfc_main = {
             e: common_vendor.n("log-" + row.level)
           };
         }),
-        o: !debugLogs.value.length
+        K: !debugLogs.value.length
       }, !debugLogs.value.length ? {} : {}, {
-        p: logScrollTop.value
-      }) : {}, {
-        q: socketJoined.value
-      }, socketJoined.value ? {
-        r: common_vendor.t(planTitle.value),
-        s: common_vendor.t(planCount.value),
-        t: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
-        v: loadingPlan.value,
-        w: common_vendor.o(pushSetPlan, "cb")
-      } : {}, {
-        x: socketJoined.value && planIds.value.length
-      }, socketJoined.value && planIds.value.length ? {
-        y: common_vendor.o(($event) => sendCmd("resume"), "b3"),
-        z: common_vendor.o(($event) => sendCmd("pause"), "6c"),
-        A: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "80"),
-        B: currentIndex.value <= 0,
-        C: common_vendor.o(($event) => shiftItem(-1), "c6"),
-        D: currentIndex.value >= planIds.value.length - 1,
-        E: common_vendor.o(($event) => shiftItem(1), "4d"),
-        F: common_vendor.o(toggleVideo, "11"),
-        G: common_vendor.o(endTraining, "10")
-      } : {});
+        L: logScrollTop.value
+      }) : {});
     };
   }
 };
