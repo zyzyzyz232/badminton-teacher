@@ -249,9 +249,13 @@ function mapProjectToPlanItem(project, materials) {
   const ms = [...(materials || [])].sort(
     (a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id),
   )
-  const m = ms.find((row) => typeof row.videoUrl === 'string' && row.videoUrl) || ms[0] || {}
-  const videoUrl = typeof m.videoUrl === 'string' && m.videoUrl ? m.videoUrl : undefined
-  const desc = m.description || m.title
+  const videoMat = ms.find((row) => typeof row.videoUrl === 'string' && row.videoUrl)
+  const imageMat = ms.find((row) => typeof row.imageUrl === 'string' && row.imageUrl)
+  const m = videoMat || imageMat || ms[0] || {}
+  const videoUrl = videoMat?.videoUrl || (typeof m.videoUrl === 'string' && m.videoUrl ? m.videoUrl : undefined)
+  const imageUrl =
+    imageMat?.imageUrl || (typeof m.imageUrl === 'string' && m.imageUrl ? m.imageUrl : undefined)
+  const desc = (videoMat || imageMat || m).description || (videoMat || imageMat || m).title
   const instruction = typeof desc === 'string' && desc ? desc : undefined
   const pid = resolveProjectItemId(project)
   const row = {
@@ -260,6 +264,7 @@ function mapProjectToPlanItem(project, materials) {
     durationMin: Math.max(1, Math.round(Number(project.duration)) || 1),
   }
   if (videoUrl) row.videoUrl = videoUrl
+  if (imageUrl) row.imageUrl = imageUrl
   if (instruction) row.instruction = instruction
   return row
 }
@@ -335,8 +340,9 @@ function onSocketMessageHandler(res) {
       const cur = msg.state.plan.find((p) => p.id === msg.state.currentItemId) || msg.state.plan[0]
       const hasToken = !!(msg.state.mediaBearerToken && String(msg.state.mediaBearerToken).length)
       pushLog('info', 'STATE', `plan=${msg.state.plan.length} paused=${msg.state.paused} videoPlaying=${msg.state.videoPlaying}`)
-      pushLog('info', 'VIDEO', `token=${hasToken ? '有' : '无'} url=${cur?.videoUrl ? '有' : '无'}`, {
+      pushLog('info', 'VIDEO', `token=${hasToken ? '有' : '无'} video=${cur?.videoUrl ? '有' : '无'} image=${cur?.imageUrl ? '有' : '无'}`, {
         videoUrl: cur?.videoUrl || '',
+        imageUrl: cur?.imageUrl || '',
         tokenPrefix: hasToken ? String(msg.state.mediaBearerToken).slice(0, 8) : '',
       })
       return
@@ -457,14 +463,16 @@ async function pushSetPlan() {
     currentIndex.value = 0
     const mediaTok = getToken()
     const withVideo = plan.filter((p) => p.videoUrl).length
+    const withImage = plan.filter((p) => p.imageUrl).length
     sendCmd('setPlan', {
       plan,
       currentItemId: plan[0].id,
       mediaBearerToken: mediaTok,
     })
-    pushLog('out', 'setPlan', `下发 ${plan.length} 项，含视频 ${withVideo} 项`, {
+    pushLog('out', 'setPlan', `下发 ${plan.length} 项，视频 ${withVideo} / 图片 ${withImage}`, {
       currentItemId: plan[0].id,
       videoUrl: plan[0].videoUrl || '(无)',
+      imageUrl: plan[0].imageUrl || '(无)',
       hasMediaToken: !!mediaTok,
       tokenPrefix: mediaTok ? mediaTok.slice(0, 8) : '',
     })

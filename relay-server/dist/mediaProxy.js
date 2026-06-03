@@ -30,7 +30,7 @@ export function authHeadersForMedia(token, tenantId = '1') {
         'Tenant-Id': tenantId,
     };
 }
-/** 后台 CommonResult 即使 HTTP 200 也可能不是视频 */
+/** 后台 CommonResult 即使 HTTP 200 也可能不是媒体流 */
 export function isMediaContentType(contentType) {
     if (!contentType)
         return false;
@@ -39,7 +39,7 @@ export function isMediaContentType(contentType) {
         return false;
     if (c.includes('text/html') || c.includes('text/plain'))
         return false;
-    if (c.startsWith('video/'))
+    if (c.startsWith('video/') || c.startsWith('image/'))
         return true;
     if (c.includes('octet-stream'))
         return true;

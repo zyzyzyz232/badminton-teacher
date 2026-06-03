@@ -38,13 +38,13 @@ export type MediaFetchAttempt = {
   headers: Record<string, string>
 }
 
-/** 后台 CommonResult 即使 HTTP 200 也可能不是视频 */
+/** 后台 CommonResult 即使 HTTP 200 也可能不是媒体流 */
 export function isMediaContentType(contentType: string | null): boolean {
   if (!contentType) return false
   const c = contentType.toLowerCase()
   if (c.includes('application/json')) return false
   if (c.includes('text/html') || c.includes('text/plain')) return false
-  if (c.startsWith('video/')) return true
+  if (c.startsWith('video/') || c.startsWith('image/')) return true
   if (c.includes('octet-stream')) return true
   return false
 }

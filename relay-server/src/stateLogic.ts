@@ -35,6 +35,7 @@ function normalizePlanItem(raw: unknown): PlanItem | null {
   if (durationMin === null) return null
   const item: PlanItem = { id: o.id, title: o.title, durationMin }
   if (typeof o.videoUrl === 'string' && o.videoUrl.length > 0) item.videoUrl = o.videoUrl
+  if (typeof o.imageUrl === 'string' && o.imageUrl.length > 0) item.imageUrl = o.imageUrl
   if (typeof o.instruction === 'string' && o.instruction.length > 0)
     item.instruction = o.instruction
   return item

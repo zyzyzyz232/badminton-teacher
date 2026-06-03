@@ -157,9 +157,12 @@ const _sfc_main = {
       const ms = [...materials || []].sort(
         (a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)
       );
-      const m = ms.find((row2) => typeof row2.videoUrl === "string" && row2.videoUrl) || ms[0] || {};
-      const videoUrl = typeof m.videoUrl === "string" && m.videoUrl ? m.videoUrl : void 0;
-      const desc = m.description || m.title;
+      const videoMat = ms.find((row2) => typeof row2.videoUrl === "string" && row2.videoUrl);
+      const imageMat = ms.find((row2) => typeof row2.imageUrl === "string" && row2.imageUrl);
+      const m = videoMat || imageMat || ms[0] || {};
+      const videoUrl = (videoMat == null ? void 0 : videoMat.videoUrl) || (typeof m.videoUrl === "string" && m.videoUrl ? m.videoUrl : void 0);
+      const imageUrl = (imageMat == null ? void 0 : imageMat.imageUrl) || (typeof m.imageUrl === "string" && m.imageUrl ? m.imageUrl : void 0);
+      const desc = (videoMat || imageMat || m).description || (videoMat || imageMat || m).title;
       const instruction = typeof desc === "string" && desc ? desc : void 0;
       const pid = resolveProjectItemId(project);
       const row = {
@@ -169,6 +172,8 @@ const _sfc_main = {
       };
       if (videoUrl)
         row.videoUrl = videoUrl;
+      if (imageUrl)
+        row.imageUrl = imageUrl;
       if (instruction)
         row.instruction = instruction;
       return row;
@@ -205,7 +210,7 @@ const _sfc_main = {
       } catch (e) {
         statusLine.value = "发送失败";
         pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:301", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:306", e);
       }
     }
     function sendPingState() {
@@ -241,8 +246,9 @@ const _sfc_main = {
           const cur = msg.state.plan.find((p) => p.id === msg.state.currentItemId) || msg.state.plan[0];
           const hasToken = !!(msg.state.mediaBearerToken && String(msg.state.mediaBearerToken).length);
           pushLog("info", "STATE", `plan=${msg.state.plan.length} paused=${msg.state.paused} videoPlaying=${msg.state.videoPlaying}`);
-          pushLog("info", "VIDEO", `token=${hasToken ? "有" : "无"} url=${(cur == null ? void 0 : cur.videoUrl) ? "有" : "无"}`, {
+          pushLog("info", "VIDEO", `token=${hasToken ? "有" : "无"} video=${(cur == null ? void 0 : cur.videoUrl) ? "有" : "无"} image=${(cur == null ? void 0 : cur.imageUrl) ? "有" : "无"}`, {
             videoUrl: (cur == null ? void 0 : cur.videoUrl) || "",
+            imageUrl: (cur == null ? void 0 : cur.imageUrl) || "",
             tokenPrefix: hasToken ? String(msg.state.mediaBearerToken).slice(0, 8) : ""
           });
           return;
@@ -337,7 +343,7 @@ const _sfc_main = {
           socketOpen.value = false;
           statusLine.value = "无法发起连接";
           pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:438", err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:444", err);
         }
       });
     }
@@ -358,20 +364,22 @@ const _sfc_main = {
         currentIndex.value = 0;
         const mediaTok = getToken();
         const withVideo = plan.filter((p) => p.videoUrl).length;
+        const withImage = plan.filter((p) => p.imageUrl).length;
         sendCmd("setPlan", {
           plan,
           currentItemId: plan[0].id,
           mediaBearerToken: mediaTok
         });
-        pushLog("out", "setPlan", `下发 ${plan.length} 项，含视频 ${withVideo} 项`, {
+        pushLog("out", "setPlan", `下发 ${plan.length} 项，视频 ${withVideo} / 图片 ${withImage}`, {
           currentItemId: plan[0].id,
           videoUrl: plan[0].videoUrl || "(无)",
+          imageUrl: plan[0].imageUrl || "(无)",
           hasMediaToken: !!mediaTok,
           tokenPrefix: mediaTok ? mediaTok.slice(0, 8) : ""
         });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:473", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:481", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;

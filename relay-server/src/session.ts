@@ -3,6 +3,7 @@ export type PlanItem = {
   title: string
   durationMin: number
   videoUrl?: string
+  imageUrl?: string
   instruction?: string
 }
 
