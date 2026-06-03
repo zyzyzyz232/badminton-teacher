@@ -162,8 +162,9 @@ const _sfc_main = {
       const m = videoMat || imageMat || ms[0] || {};
       const videoUrl = (videoMat == null ? void 0 : videoMat.videoUrl) || (typeof m.videoUrl === "string" && m.videoUrl ? m.videoUrl : void 0);
       const imageUrl = (imageMat == null ? void 0 : imageMat.imageUrl) || (typeof m.imageUrl === "string" && m.imageUrl ? m.imageUrl : void 0);
-      const desc = (videoMat || imageMat || m).description || (videoMat || imageMat || m).title;
-      const instruction = typeof desc === "string" && desc ? desc : void 0;
+      const mat = videoMat || imageMat || m;
+      const rawDesc = mat.description;
+      const instruction = typeof rawDesc === "string" && rawDesc.trim() ? rawDesc.trim() : void 0;
       const pid = resolveProjectItemId(project);
       const row = {
         id: pid || String(project.id ?? ""),
@@ -210,7 +211,7 @@ const _sfc_main = {
       } catch (e) {
         statusLine.value = "发送失败";
         pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:361", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:363", e);
       }
     }
     function sendPingState() {
@@ -343,7 +344,7 @@ const _sfc_main = {
           socketOpen.value = false;
           statusLine.value = "无法发起连接";
           pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:499", err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:501", err);
         }
       });
     }
@@ -379,7 +380,7 @@ const _sfc_main = {
         });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:536", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:538", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;

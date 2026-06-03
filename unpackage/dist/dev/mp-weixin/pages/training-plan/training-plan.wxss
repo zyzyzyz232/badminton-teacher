@@ -4,7 +4,8 @@
 	background: #f5f7fa;
 	display: flex;
 	flex-direction: column;
-	padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
+	/* 底部按钮区 + 原生 tabBar（约 100rpx） */
+	padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
 	box-sizing: border-box;
 }
 .header-bar.data-v-be437309 {
@@ -98,8 +99,9 @@
 	position: fixed;
 	left: 0;
 	right: 0;
-	bottom: 0;
-	padding: 16rpx 28rpx calc(16rpx + env(safe-area-inset-bottom));
+	/* 上移至 tabBar 上方（高度约 100rpx） */
+	bottom: calc(100rpx + env(safe-area-inset-bottom));
+	padding: 16rpx 28rpx 16rpx;
 	background: #fff;
 	box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
 }

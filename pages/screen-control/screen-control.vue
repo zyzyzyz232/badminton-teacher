@@ -310,8 +310,10 @@ function mapProjectToPlanItem(project, materials) {
   const videoUrl = videoMat?.videoUrl || (typeof m.videoUrl === 'string' && m.videoUrl ? m.videoUrl : undefined)
   const imageUrl =
     imageMat?.imageUrl || (typeof m.imageUrl === 'string' && m.imageUrl ? m.imageUrl : undefined)
-  const desc = (videoMat || imageMat || m).description || (videoMat || imageMat || m).title
-  const instruction = typeof desc === 'string' && desc ? desc : undefined
+  const mat = videoMat || imageMat || m
+  const rawDesc = mat.description
+  const instruction =
+    typeof rawDesc === 'string' && rawDesc.trim() ? rawDesc.trim() : undefined
   const pid = resolveProjectItemId(project)
   const row = {
     id: pid || String(project.id ?? ''),
