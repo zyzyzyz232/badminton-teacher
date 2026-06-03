@@ -186,12 +186,12 @@ const _sfc_main = {
       }, isActionRecognition.value ? {
         l: common_vendor.t(isRecognizing.value ? "上传中…" : "测试上传识别"),
         m: isRecognizing.value ? 1 : "",
-        n: common_vendor.o(onUploadAndRecognizeTest, "60")
+        n: common_vendor.o(onUploadAndRecognizeTest, "a3")
       } : {}, {
         o: common_vendor.t(isRecognizing.value ? "识别中…" : "开始识别"),
         p: isRecognizing.value ? 1 : "",
-        q: common_vendor.o(onStartRecognize, "cf"),
-        r: common_vendor.o(onStopRecognize, "b0")
+        q: common_vendor.o(onStartRecognize, "4e"),
+        r: common_vendor.o(onStopRecognize, "95")
       });
     };
   }

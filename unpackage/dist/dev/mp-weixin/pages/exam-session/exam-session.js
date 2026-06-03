@@ -181,7 +181,7 @@ const _sfc_main = {
         e: studentList.value.length > 0,
         g: common_vendor.t(selectedClassStudentId.value !== null ? "开始考核" : "请先选择一名学员"),
         h: selectedClassStudentId.value === null ? 1 : "",
-        i: common_vendor.o(onStartExam, "67")
+        i: common_vendor.o(onStartExam, "29")
       });
     };
   }

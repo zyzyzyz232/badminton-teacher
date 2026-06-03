@@ -123,7 +123,7 @@ const _sfc_main = {
         b: common_vendor.t(venueDisplayLine.value),
         c: venueList.value,
         d: venuePickerIndex.value,
-        e: common_vendor.o(onVenueChange, "2a"),
+        e: common_vendor.o(onVenueChange, "93"),
         f: common_vendor.f(examTypes, (t, k0, i0) => {
           return {
             a: common_vendor.t(t.title),
@@ -135,7 +135,7 @@ const _sfc_main = {
         }),
         g: common_vendor.t(confirmBtnLabel.value),
         h: !canStart.value ? 1 : "",
-        i: common_vendor.o(goToExamSession, "10")
+        i: common_vendor.o(goToExamSession, "d5")
       };
     };
   }

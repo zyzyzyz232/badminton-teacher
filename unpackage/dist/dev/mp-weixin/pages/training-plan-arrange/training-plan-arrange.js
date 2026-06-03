@@ -143,11 +143,9 @@ const _sfc_main = {
     }
     const catalogItems = common_vendor.ref([]);
     const planRows = common_vendor.ref([]);
-    const draggingCatalogId = common_vendor.ref(null);
-    const dragCatalogStart = common_vendor.ref({ x: 0, y: 0 });
-    const dragPlanFromIndex = common_vendor.ref(-1);
-    const planRowTouchStartY = common_vendor.ref(0);
     const showCreateProject = common_vendor.ref(false);
+    const createProjectLoading = common_vendor.ref(false);
+    const createProjectLoadingText = common_vendor.ref("");
     const projectForm = common_vendor.ref({
       itemName: "",
       itemContent: "",
@@ -193,6 +191,19 @@ const _sfc_main = {
         return false;
       const n = parseInt(s, 10);
       return Number.isFinite(n) && n > 0;
+    }
+    function isCatalogItemAddable(p) {
+      if (!p || p.id == null)
+        return false;
+      const s = String(p.id);
+      if (s.startsWith("tmp_") || s.startsWith("new_"))
+        return false;
+      return true;
+    }
+    async function onQuickAddToPlan(p) {
+      if (!isCatalogItemAddable(p))
+        return;
+      await attachCatalogItemToPlan(p);
     }
     function goEditProject(p) {
       if (!isCatalogItemEditable(p))
@@ -287,57 +298,6 @@ const _sfc_main = {
         common_vendor.index.hideLoading();
       }
     }
-    function isPointInPlanZone(clientX, clientY) {
-      return new Promise((resolve) => {
-        common_vendor.index.createSelectorQuery().select("#plan-drop-zone").boundingClientRect().exec((res) => {
-          const rect = res && res[0];
-          if (!rect || typeof rect.left !== "number") {
-            resolve(false);
-            return;
-          }
-          const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-          resolve(inside);
-        });
-      });
-    }
-    function onCatalogTouchStart(e, p) {
-      draggingCatalogId.value = p.id;
-      const t = e.touches[0];
-      dragCatalogStart.value = { x: t.clientX, y: t.clientY };
-    }
-    function onCatalogTouchMove(e) {
-      if (!draggingCatalogId.value)
-        return;
-      const t = e.touches[0];
-      t.clientX - dragCatalogStart.value.x;
-      t.clientY - dragCatalogStart.value.y;
-    }
-    async function onCatalogTouchEnd(e) {
-      const id = draggingCatalogId.value;
-      draggingCatalogId.value = null;
-      if (!id)
-        return;
-      const t = e.changedTouches[0];
-      const inside = await isPointInPlanZone(t.clientX, t.clientY);
-      const item = catalogItems.value.find((x) => x.id === id);
-      if (!item) {
-        return;
-      }
-      if (inside) {
-        await attachCatalogItemToPlan(item);
-      }
-    }
-    function onCatalogTouchCancel() {
-      draggingCatalogId.value = null;
-    }
-    function onPlanRowTouchStart(e, index) {
-      const row = planRows.value[index];
-      if (!(row == null ? void 0 : row.project))
-        return;
-      dragPlanFromIndex.value = index;
-      const t = e.touches[0];
-      planRowTouchStartY.value = t.clientY;
-    }
     function swapRows(i, j) {
       const a = planRows.value[i];
       const b = planRows.value[j];
@@ -349,25 +309,40 @@ const _sfc_main = {
       a.project = b.project;
       b.project = tmp;
     }
-    function onPlanRowTouchEnd(e, index) {
-      if (dragPlanFromIndex.value !== index)
-        return;
-      const t = e.changedTouches[0];
-      const dy = t.clientY - planRowTouchStartY.value;
-      dragPlanFromIndex.value = -1;
+    function canMovePlanRowUp(index) {
+      if (index <= 0)
+        return false;
       const cur = planRows.value[index];
+      const prev = planRows.value[index - 1];
+      return !!((cur == null ? void 0 : cur.project) && (prev == null ? void 0 : prev.project));
+    }
+    function canMovePlanRowDown(index) {
+      if (index >= planRows.value.length - 1)
+        return false;
+      const cur = planRows.value[index];
+      const next = planRows.value[index + 1];
       if (!(cur == null ? void 0 : cur.project))
+        return false;
+      if (next == null ? void 0 : next.project)
+        return true;
+      return !!(next && !next.project);
+    }
+    function movePlanRowUp(index) {
+      if (!canMovePlanRowUp(index))
         return;
-      if (dy < -36 && index > 0) {
-        swapRows(index, index - 1);
-      } else if (dy > 36 && index < planRows.value.length - 1) {
-        const next = planRows.value[index + 1];
-        if (next == null ? void 0 : next.project)
-          swapRows(index, index + 1);
-        else if (next && !next.project) {
-          next.project = cur.project;
-          cur.project = null;
-        }
+      swapRows(index, index - 1);
+    }
+    function movePlanRowDown(index) {
+      if (!canMovePlanRowDown(index))
+        return;
+      const cur = planRows.value[index];
+      const next = planRows.value[index + 1];
+      if (next == null ? void 0 : next.project) {
+        swapRows(index, index + 1);
+      } else if (next && (cur == null ? void 0 : cur.project)) {
+        next.project = cur.project;
+        cur.project = null;
+        ensureTrailingEmpty();
       }
     }
     function removeAt(index) {
@@ -510,7 +485,17 @@ const _sfc_main = {
       showCreateProject.value = true;
     }
     function closeCreateProjectModal() {
+      if (createProjectLoading.value)
+        return;
       showCreateProject.value = false;
+    }
+    function setCreateProjectLoading(text) {
+      createProjectLoadingText.value = text;
+      createProjectLoading.value = true;
+    }
+    function clearCreateProjectLoading() {
+      createProjectLoading.value = false;
+      createProjectLoadingText.value = "";
     }
     function onItemTypePick(e) {
       const i = Number(e.detail.value);
@@ -522,12 +507,11 @@ const _sfc_main = {
       if (!Number.isNaN(i))
         projectForm.value.difficulty = i + 1;
     }
-    function onMaterialTypeNewPick(e) {
-      const i = Number(e.detail.value);
-      if (!Number.isNaN(i)) {
-        projectForm.value.materialTypeNew = i + 1;
-        projectForm.value.materialTempPath = "";
-      }
+    function setMaterialTypeNew(type) {
+      if (projectForm.value.materialTypeNew === type)
+        return;
+      projectForm.value.materialTypeNew = type;
+      projectForm.value.materialTempPath = "";
     }
     function chooseMaterialFile() {
       const mt = projectForm.value.materialTypeNew;
@@ -592,19 +576,19 @@ const _sfc_main = {
       };
       let createStage = "init";
       try {
-        common_vendor.index.showLoading({ title: "创建项目…" });
+        setCreateProjectLoading("正在创建项目…");
         createStage = "createPlanProject";
         const createdId = await services_trainingPlanApi.createPlanProject(payload);
         const itemId = services_trainingPlanApi.extractPlanProjectItemId(createdId);
         if (!itemId) {
-          common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:908", "[submitCreateProject]", createStage, {
+          common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:906", "[submitCreateProject]", createStage, {
             createdId,
             payload,
             hint: "extractPlanProjectItemId 为空"
           });
           throw new Error("创建成功但未返回项目 id");
         }
-        common_vendor.index.showLoading({ title: "上传资料…" });
+        setCreateProjectLoading("正在上传资料…");
         createStage = "uploadPlanMaterialFile";
         const uploadData = await services_trainingPlanApi.uploadPlanMaterialFile({
           filePath: projectForm.value.materialTempPath,
@@ -616,14 +600,14 @@ const _sfc_main = {
         });
         const { imageUrl, videoUrl } = urlsFromUploadData(uploadData, mt);
         if (!imageUrl && !videoUrl) {
-          common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:928", "[submitCreateProject]", createStage, {
+          common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:926", "[submitCreateProject]", createStage, {
             uploadData,
             materialType: mt,
             hint: "urlsFromUploadData 未得到 imageUrl/videoUrl"
           });
           throw new Error("上传未返回文件地址，无法登记资料");
         }
-        common_vendor.index.showLoading({ title: "登记资料…" });
+        setCreateProjectLoading("正在登记资料…");
         createStage = "createPlanMaterial";
         const matBody = {
           ...hasPlanId ? { planId: pid } : {},
@@ -641,12 +625,24 @@ const _sfc_main = {
           matBody.duration = Number(uploadData.duration);
         }
         await services_trainingPlanApi.createPlanMaterial(matBody);
+        const newCatalogItem = {
+          id: String(itemId),
+          name,
+          durationMin: duration,
+          hasMaterials: true
+        };
+        const existIdx = catalogItems.value.findIndex((x) => String(x.id) === newCatalogItem.id);
+        if (existIdx >= 0) {
+          catalogItems.value[existIdx] = newCatalogItem;
+        } else {
+          catalogItems.value.unshift(newCatalogItem);
+        }
         closeCreateProjectModal();
         await loadData();
         common_vendor.index.showToast({ title: "创建成功", icon: "success" });
       } catch (err) {
         const msg = err && err.message ? err.message : "创建失败";
-        common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:958", "[submitCreateProject] failed", {
+        common_vendor.index.__f__("error", "at pages/training-plan-arrange/training-plan-arrange.vue:969", "[submitCreateProject] failed", {
           stage: createStage,
           message: msg,
           err,
@@ -657,7 +653,7 @@ const _sfc_main = {
         });
         common_vendor.index.showToast({ title: msg, icon: "none", duration: 2800 });
       } finally {
-        common_vendor.index.hideLoading();
+        clearCreateProjectLoading();
       }
     }
     async function onSave() {
@@ -750,23 +746,28 @@ const _sfc_main = {
           }, p.durationMin != null ? {
             c: common_vendor.t(p.durationMin)
           } : {}, {
-            d: isCatalogItemEditable(p)
-          }, isCatalogItemEditable(p) ? {
-            e: common_vendor.o(($event) => goEditProject(p), p.id),
-            f: common_vendor.o(($event) => confirmDeleteProject(p), p.id),
-            g: common_vendor.o(() => {
-            }, p.id)
+            d: isCatalogItemAddable(p)
+          }, isCatalogItemAddable(p) ? {
+            e: common_vendor.o(($event) => onQuickAddToPlan(p), p.id)
           } : {}, {
-            h: p.id,
-            i: draggingCatalogId.value === p.id ? 1 : "",
-            j: p.id,
-            k: common_vendor.o(($event) => onCatalogTouchStart($event, p), p.id),
-            l: common_vendor.o(onCatalogTouchMove, p.id),
-            m: common_vendor.o(onCatalogTouchEnd, p.id),
-            n: common_vendor.o(onCatalogTouchCancel, p.id)
+            f: isCatalogItemEditable(p)
+          }, isCatalogItemEditable(p) ? {
+            g: common_vendor.o(($event) => goEditProject(p), p.id)
+          } : {}, {
+            h: isCatalogItemEditable(p)
+          }, isCatalogItemEditable(p) ? {
+            i: common_vendor.o(($event) => confirmDeleteProject(p), p.id)
+          } : {}, {
+            j: common_vendor.o(() => {
+            }, p.id),
+            k: common_vendor.o(() => {
+            }, p.id),
+            l: common_vendor.o(() => {
+            }, p.id),
+            m: p.id
           });
         }),
-        r: common_vendor.o(openCreateProjectModal, "6d"),
+        r: common_vendor.o(openCreateProjectModal, "f8"),
         s: common_vendor.f(planRows.value, (row, index, i0) => {
           return common_vendor.e({
             a: common_vendor.t(index + 1),
@@ -779,50 +780,71 @@ const _sfc_main = {
           } : {}) : {}, {
             f: row.project
           }, row.project ? {
-            g: common_vendor.o(($event) => removeAt(index), row._key)
+            g: !canMovePlanRowUp(index) ? 1 : "",
+            h: common_vendor.o(($event) => movePlanRowUp(index), row._key),
+            i: !canMovePlanRowDown(index) ? 1 : "",
+            j: common_vendor.o(($event) => movePlanRowDown(index), row._key),
+            k: common_vendor.o(($event) => removeAt(index), row._key)
           } : {}, {
-            h: row._key,
-            i: !row.project ? 1 : "",
-            j: dragPlanFromIndex.value === index ? 1 : "",
-            k: common_vendor.o(($event) => onPlanRowTouchStart($event, index), row._key),
-            l: common_vendor.o(($event) => onPlanRowTouchEnd($event, index), row._key)
+            l: row._key,
+            m: !row.project ? 1 : ""
           });
         }),
-        t: common_vendor.o(onSave, "91"),
+        t: common_vendor.o(onSave, "c5"),
         v: showCreateProject.value
-      }, showCreateProject.value ? {
-        w: common_vendor.o(closeCreateProjectModal, "41"),
-        x: projectForm.value.itemName,
-        y: common_vendor.o(($event) => projectForm.value.itemName = $event.detail.value, "7d"),
-        z: projectForm.value.itemContent,
-        A: common_vendor.o(($event) => projectForm.value.itemContent = $event.detail.value, "a6"),
-        B: common_vendor.t(itemTypeLabels[projectForm.value.itemType - 1]),
-        C: itemTypeLabels,
-        D: common_vendor.o(onItemTypePick, "24"),
-        E: common_vendor.t(difficultyLabels[projectForm.value.difficulty - 1]),
-        F: difficultyLabels,
-        G: common_vendor.o(onDifficultyPick, "ac"),
-        H: projectForm.value.duration,
-        I: common_vendor.o(($event) => projectForm.value.duration = $event.detail.value, "f3"),
-        J: projectForm.value.score,
-        K: common_vendor.o(($event) => projectForm.value.score = $event.detail.value, "50"),
-        L: projectForm.value.sortOrder,
-        M: common_vendor.o(($event) => projectForm.value.sortOrder = $event.detail.value, "86"),
-        N: common_vendor.t(materialTypeLabelsNew[projectForm.value.materialTypeNew - 1]),
-        O: materialTypeLabelsNew,
-        P: common_vendor.o(onMaterialTypeNewPick, "bb"),
-        Q: common_vendor.t(projectForm.value.materialTempPath ? "已选择，点击重选" : "选择图片或视频"),
-        R: common_vendor.o(chooseMaterialFile, "7e"),
-        S: projectForm.value.materialTitle,
-        T: common_vendor.o(($event) => projectForm.value.materialTitle = $event.detail.value, "0e"),
-        U: projectForm.value.materialDescription,
-        V: common_vendor.o(($event) => projectForm.value.materialDescription = $event.detail.value, "9a"),
-        W: common_vendor.o(closeCreateProjectModal, "2e"),
-        X: common_vendor.o(submitCreateProject, "17"),
-        Y: common_vendor.o(() => {
-        }, "f5"),
-        Z: common_vendor.o(closeCreateProjectModal, "96")
-      } : {});
+      }, showCreateProject.value ? common_vendor.e({
+        w: createProjectLoading.value
+      }, createProjectLoading.value ? {
+        x: common_vendor.t(createProjectLoadingText.value),
+        y: common_vendor.o(() => {
+        }, "d5")
+      } : {}, {
+        z: createProjectLoading.value ? 1 : "",
+        A: common_vendor.o(closeCreateProjectModal, "e8"),
+        B: projectForm.value.itemName,
+        C: common_vendor.o(($event) => projectForm.value.itemName = $event.detail.value, "0f"),
+        D: projectForm.value.itemContent,
+        E: common_vendor.o(($event) => projectForm.value.itemContent = $event.detail.value, "d8"),
+        F: common_vendor.t(itemTypeLabels[projectForm.value.itemType - 1]),
+        G: common_vendor.o(() => {
+        }, "86"),
+        H: itemTypeLabels,
+        I: projectForm.value.itemType - 1,
+        J: common_vendor.o(onItemTypePick, "16"),
+        K: common_vendor.t(difficultyLabels[projectForm.value.difficulty - 1]),
+        L: common_vendor.o(() => {
+        }, "1a"),
+        M: difficultyLabels,
+        N: projectForm.value.difficulty - 1,
+        O: common_vendor.o(onDifficultyPick, "d5"),
+        P: projectForm.value.duration,
+        Q: common_vendor.o(($event) => projectForm.value.duration = $event.detail.value, "06"),
+        R: projectForm.value.score,
+        S: common_vendor.o(($event) => projectForm.value.score = $event.detail.value, "f9"),
+        T: projectForm.value.sortOrder,
+        U: common_vendor.o(($event) => projectForm.value.sortOrder = $event.detail.value, "6d"),
+        V: common_vendor.f(materialTypeLabelsNew, (label, idx, i0) => {
+          return {
+            a: common_vendor.t(label),
+            b: idx,
+            c: projectForm.value.materialTypeNew === idx + 1 ? 1 : "",
+            d: common_vendor.o(($event) => setMaterialTypeNew(idx + 1), idx)
+          };
+        }),
+        W: common_vendor.t(projectForm.value.materialTempPath ? "已选择，点击重选" : "选择图片或视频"),
+        X: common_vendor.o(chooseMaterialFile, "ed"),
+        Y: projectForm.value.materialTitle,
+        Z: common_vendor.o(($event) => projectForm.value.materialTitle = $event.detail.value, "be"),
+        aa: projectForm.value.materialDescription,
+        ab: common_vendor.o(($event) => projectForm.value.materialDescription = $event.detail.value, "83"),
+        ac: createProjectLoading.value,
+        ad: common_vendor.o(closeCreateProjectModal, "a0"),
+        ae: createProjectLoading.value,
+        af: common_vendor.o(submitCreateProject, "a2"),
+        ag: common_vendor.o(() => {
+        }, "da"),
+        ah: common_vendor.o(closeCreateProjectModal, "81")
+      }) : {});
     };
   }
 };

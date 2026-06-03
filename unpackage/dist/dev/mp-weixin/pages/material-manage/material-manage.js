@@ -4,6 +4,16 @@ const API_BASE = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "material-manage",
   setup(__props) {
+    const statusBarHeight = common_vendor.ref(0);
+    try {
+      statusBarHeight.value = common_vendor.index.getSystemInfoSync().statusBarHeight || 0;
+    } catch {
+      statusBarHeight.value = 0;
+    }
+    const listHeight = common_vendor.computed(() => {
+      const top = statusBarHeight.value + 44 + 120;
+      return `calc(100vh - ${top}px)`;
+    });
     const planId = common_vendor.ref(0);
     const itemId = common_vendor.ref(0);
     const projectName = common_vendor.ref("");
@@ -17,8 +27,22 @@ const _sfc_main = {
       description: ""
     });
     const materialTypeOptions = ["图片", "视频"];
-    const getToken = () => {
-      return common_vendor.index.getStorageSync("token") || "";
+    const getToken = () => common_vendor.index.getStorageSync("token") || "";
+    const authHeader = () => ({
+      Authorization: `Bearer ${getToken()}`,
+      "Tenant-Id": "1"
+    });
+    const goBack = () => {
+      const pages = getCurrentPages();
+      if (pages.length > 1) {
+        common_vendor.index.navigateBack();
+        return;
+      }
+      common_vendor.index.navigateBack({
+        fail: () => {
+          common_vendor.index.redirectTo({ url: "/pages/training-plan/training-plan" });
+        }
+      });
     };
     const fetchMaterialList = async () => {
       try {
@@ -26,9 +50,7 @@ const _sfc_main = {
         const res = await common_vendor.index.request({
           url: `${API_BASE}/teaching/plan-material/list-by-item`,
           method: "GET",
-          header: {
-            "Authorization": `Bearer ${getToken()}`
-          },
+          header: authHeader(),
           data: {
             planId: planId.value,
             itemId: itemId.value
@@ -42,7 +64,7 @@ const _sfc_main = {
         }
       } catch (e) {
         common_vendor.index.hideLoading();
-        common_vendor.index.__f__("log", "at pages/material-manage/material-manage.vue:182", "获取资料列表失败", e);
+        common_vendor.index.__f__("log", "at pages/material-manage/material-manage.vue:240", "获取资料列表失败", e);
         common_vendor.index.showToast({ title: "网络错误", icon: "none" });
       }
     };
@@ -54,6 +76,9 @@ const _sfc_main = {
           success: (res) => {
             tempFilePath.value = res.tempFilePaths[0];
             showUploadModal.value = true;
+          },
+          fail: () => {
+            common_vendor.index.showToast({ title: "未选择图片", icon: "none" });
           }
         });
       } else {
@@ -61,6 +86,9 @@ const _sfc_main = {
           success: (res) => {
             tempFilePath.value = res.tempFilePath;
             showUploadModal.value = true;
+          },
+          fail: () => {
+            common_vendor.index.showToast({ title: "未选择视频", icon: "none" });
           }
         });
       }
@@ -74,8 +102,57 @@ const _sfc_main = {
         description: ""
       };
     };
-    const onMaterialTypeChange = (e) => {
-      uploadForm.value.materialType = e.detail.value + 1;
+    const setMaterialType = (type) => {
+      uploadForm.value.materialType = type;
+    };
+    const changeMaterialType = (item) => {
+      common_vendor.index.showActionSheet({
+        itemList: materialTypeOptions,
+        success: (res) => {
+          const newType = res.tapIndex + 1;
+          if (newType === item.materialType)
+            return;
+          doUpdateMaterialType(item, newType);
+        }
+      });
+    };
+    const doUpdateMaterialType = async (item, materialType) => {
+      var _a, _b;
+      try {
+        common_vendor.index.showLoading({ title: "保存中..." });
+        const body = {
+          id: item.id,
+          planId: planId.value,
+          itemId: itemId.value,
+          materialType,
+          imageUrl: item.imageUrl || "",
+          videoUrl: item.videoUrl || "",
+          title: item.title || "",
+          description: item.description || "",
+          duration: item.duration,
+          sortOrder: item.sortOrder
+        };
+        const res = await common_vendor.index.request({
+          url: `${API_BASE}/teaching/plan-material/update`,
+          method: "PUT",
+          header: {
+            ...authHeader(),
+            "Content-Type": "application/json"
+          },
+          data: body
+        });
+        common_vendor.index.hideLoading();
+        if (((_a = res.data) == null ? void 0 : _a.code) === 0) {
+          common_vendor.index.showToast({ title: "类型已更新", icon: "success" });
+          fetchMaterialList();
+        } else {
+          common_vendor.index.showToast({ title: ((_b = res.data) == null ? void 0 : _b.msg) || "更新失败", icon: "none" });
+        }
+      } catch (e) {
+        common_vendor.index.hideLoading();
+        common_vendor.index.__f__("error", "at pages/material-manage/material-manage.vue:331", e);
+        common_vendor.index.showToast({ title: "更新失败", icon: "none" });
+      }
     };
     const uploadMaterial = async () => {
       if (!tempFilePath.value) {
@@ -88,9 +165,7 @@ const _sfc_main = {
           url: `${API_BASE}/teaching/plan-material/upload`,
           filePath: tempFilePath.value,
           name: "file",
-          header: {
-            "Authorization": `Bearer ${getToken()}`
-          },
+          header: authHeader(),
           formData: {
             planId: planId.value,
             itemId: itemId.value,
@@ -110,7 +185,7 @@ const _sfc_main = {
         }
       } catch (e) {
         common_vendor.index.hideLoading();
-        common_vendor.index.__f__("log", "at pages/material-manage/material-manage.vue:263", "上传失败", e);
+        common_vendor.index.__f__("log", "at pages/material-manage/material-manage.vue:372", "上传失败", e);
         common_vendor.index.showToast({ title: "上传失败", icon: "none" });
       }
     };
@@ -153,29 +228,36 @@ const _sfc_main = {
       const date = new Date(timeStr);
       return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
     };
-    common_vendor.onMounted(() => {
-      const pages = getCurrentPages();
-      const currentPage = pages[pages.length - 1];
-      const options = currentPage.options;
-      planId.value = parseInt(options.planId) || 0;
-      itemId.value = parseInt(options.itemId) || 0;
-      projectName.value = options.projectName || "训练项目";
-      planTitle.value = options.planTitle || "";
-      common_vendor.index.setNavigationBarTitle({
-        title: "资料管理"
-      });
+    common_vendor.onLoad((options) => {
+      planId.value = parseInt(options == null ? void 0 : options.planId, 10) || 0;
+      itemId.value = parseInt(options == null ? void 0 : options.itemId, 10) || 0;
+      projectName.value = (options == null ? void 0 : options.projectName) ? decodeURIComponent(options.projectName) : "训练项目";
+      planTitle.value = (options == null ? void 0 : options.planTitle) ? decodeURIComponent(options.planTitle) : "";
       if (planId.value && itemId.value) {
         fetchMaterialList();
+      } else {
+        common_vendor.index.showToast({ title: "参数不完整", icon: "none" });
       }
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(projectName.value),
-        b: common_vendor.t(planTitle.value),
-        c: common_vendor.o(chooseFile, "60"),
-        d: materialList.value.length > 0
+        a: common_vendor.o(goBack, "9d"),
+        b: statusBarHeight.value + "px",
+        c: common_vendor.t(projectName.value),
+        d: common_vendor.t(planTitle.value),
+        e: common_vendor.f(materialTypeOptions, (label, idx, i0) => {
+          return {
+            a: common_vendor.t(label),
+            b: idx,
+            c: uploadForm.value.materialType === idx + 1 ? 1 : "",
+            d: common_vendor.o(($event) => setMaterialType(idx + 1), idx)
+          };
+        }),
+        f: common_vendor.t(uploadForm.value.materialType === 1 ? "图片" : "视频"),
+        g: common_vendor.o(chooseFile, "f8"),
+        h: materialList.value.length > 0
       }, materialList.value.length > 0 ? {
-        e: common_vendor.f(materialList.value, (item, index, i0) => {
+        i: common_vendor.f(materialList.value, (item, index, i0) => {
           return common_vendor.e({
             a: item.materialType === 1
           }, item.materialType === 1 ? {
@@ -195,35 +277,41 @@ const _sfc_main = {
             k: common_vendor.t(item.description)
           } : {}, {
             l: common_vendor.t(formatTime(item.createTime)),
-            m: common_vendor.o(($event) => deleteMaterial(item, index), item.id),
-            n: item.id
+            m: common_vendor.o(($event) => changeMaterialType(item), item.id),
+            n: common_vendor.o(($event) => deleteMaterial(item, index), item.id),
+            o: item.id
           });
         })
       } : {}, {
-        f: showUploadModal.value
+        j: listHeight.value,
+        k: showUploadModal.value
       }, showUploadModal.value ? common_vendor.e({
-        g: common_vendor.o(closeUploadModal, "72"),
-        h: tempFilePath.value
+        l: common_vendor.o(closeUploadModal, "43"),
+        m: tempFilePath.value
       }, tempFilePath.value ? common_vendor.e({
-        i: uploadForm.value.materialType === 1
+        n: uploadForm.value.materialType === 1
       }, uploadForm.value.materialType === 1 ? {
-        j: tempFilePath.value
+        o: tempFilePath.value
       } : {
-        k: tempFilePath.value
+        p: tempFilePath.value
       }) : {}, {
-        l: common_vendor.t(materialTypeOptions[uploadForm.value.materialType - 1]),
-        m: materialTypeOptions,
-        n: uploadForm.value.materialType - 1,
-        o: common_vendor.o(onMaterialTypeChange, "13"),
-        p: uploadForm.value.title,
-        q: common_vendor.o(($event) => uploadForm.value.title = $event.detail.value, "a8"),
-        r: uploadForm.value.description,
-        s: common_vendor.o(($event) => uploadForm.value.description = $event.detail.value, "e2"),
-        t: common_vendor.o(closeUploadModal, "90"),
-        v: common_vendor.o(uploadMaterial, "01"),
-        w: common_vendor.o(() => {
-        }, "82"),
-        x: common_vendor.o(closeUploadModal, "b5")
+        q: common_vendor.f(materialTypeOptions, (label, idx, i0) => {
+          return {
+            a: common_vendor.t(label),
+            b: idx,
+            c: uploadForm.value.materialType === idx + 1 ? 1 : "",
+            d: common_vendor.o(($event) => setMaterialType(idx + 1), idx)
+          };
+        }),
+        r: uploadForm.value.title,
+        s: common_vendor.o(($event) => uploadForm.value.title = $event.detail.value, "83"),
+        t: uploadForm.value.description,
+        v: common_vendor.o(($event) => uploadForm.value.description = $event.detail.value, "c1"),
+        w: common_vendor.o(closeUploadModal, "82"),
+        x: common_vendor.o(uploadMaterial, "b8"),
+        y: common_vendor.o(() => {
+        }, "93"),
+        z: common_vendor.o(closeUploadModal, "0d")
       }) : {});
     };
   }

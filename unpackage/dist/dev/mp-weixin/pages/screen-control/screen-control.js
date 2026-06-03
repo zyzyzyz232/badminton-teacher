@@ -1,17 +1,19 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_platform = require("../../utils/platform.js");
+const utils_relayConfig = require("../../utils/relayConfig.js");
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "screen-control",
   setup(__props) {
-    const relayWs = common_vendor.ref("ws://127.0.0.1:3456");
-    const roomId = common_vendor.ref("");
-    const token = common_vendor.ref("");
+    const relayWs = common_vendor.ref(utils_relayConfig.resolveRelayWsUrl());
+    const roomId = common_vendor.ref(utils_relayConfig.RELAY_ROOM_ID_DEFAULT);
+    const token = common_vendor.ref(utils_relayConfig.RELAY_TOKEN_DEFAULT);
     const connecting = common_vendor.ref(false);
     const socketJoined = common_vendor.ref(false);
     const socketOpen = common_vendor.ref(false);
     const statusLine = common_vendor.ref("");
-    const showDebug = common_vendor.ref(true);
+    const showDebug = common_vendor.ref(false);
     const debugLogs = common_vendor.ref([]);
     const logScrollTop = common_vendor.ref(0);
     const connectionPhase = common_vendor.computed(() => {
@@ -53,7 +55,7 @@ const _sfc_main = {
       if (debugLogs.value.length > 80)
         debugLogs.value.shift();
       logScrollTop.value = debugLogs.value.length * 999;
-      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:152", `[screen-control][${tag}]`, msg, detail ?? "");
+      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:133", `[screen-control][${tag}]`, msg, detail ?? "");
     }
     function clearDebugLogs() {
       debugLogs.value = [];
@@ -66,39 +68,34 @@ const _sfc_main = {
     function normalizeRoomFields() {
       roomId.value = normalizeDigits4(roomId.value);
       token.value = normalizeDigits4(token.value);
+      persistRelayCredentials();
     }
-    function pasteJoinInfo() {
-      common_vendor.index.getClipboardData({
-        success: (res) => {
-          const text = String(res.data || "").trim();
-          if (!text) {
-            common_vendor.index.showToast({ title: "剪贴板为空", icon: "none" });
-            return;
-          }
-          const roomMatch = text.match(/房间号[:：]\s*(\d{4})/);
-          const tokenMatch = text.match(/令牌[:：]\s*(\d{4})/);
-          if (roomMatch && tokenMatch) {
-            roomId.value = roomMatch[1];
-            token.value = tokenMatch[1];
-          } else {
-            const digits = text.match(/\d{4}/g);
-            if ((digits == null ? void 0 : digits.length) >= 2) {
-              roomId.value = digits[0];
-              token.value = digits[1];
-            } else if ((digits == null ? void 0 : digits.length) === 1) {
-              roomId.value = digits[0];
-            } else {
-              common_vendor.index.showToast({ title: "未找到4位数字", icon: "none" });
-              return;
-            }
-          }
-          normalizeRoomFields();
-          common_vendor.index.showToast({ title: "已粘贴", icon: "success" });
-        },
-        fail: () => {
-          common_vendor.index.showToast({ title: "无法读取剪贴板", icon: "none" });
-        }
-      });
+    function loadRelayCredentials() {
+      const savedWs = common_vendor.index.getStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.ws);
+      const savedRoom = common_vendor.index.getStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.roomId);
+      const savedToken = common_vendor.index.getStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.token);
+      relayWs.value = utils_relayConfig.resolveRelayWsUrl(typeof savedWs === "string" ? savedWs : "");
+      roomId.value = normalizeDigits4(
+        typeof savedRoom === "string" && savedRoom ? savedRoom : utils_relayConfig.RELAY_ROOM_ID_DEFAULT
+      );
+      token.value = normalizeDigits4(
+        typeof savedToken === "string" && savedToken ? savedToken : utils_relayConfig.RELAY_TOKEN_DEFAULT
+      );
+    }
+    function persistRelayCredentials() {
+      try {
+        const ws = relayWs.value.trim();
+        if (ws)
+          common_vendor.index.setStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.ws, ws);
+        if (DIGITS4.test(roomId.value))
+          common_vendor.index.setStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.roomId, roomId.value);
+        if (DIGITS4.test(token.value))
+          common_vendor.index.setStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.token, token.value);
+      } catch {
+      }
+    }
+    function canAutoConnect() {
+      return planId.value > 0 && !socketJoined.value && !connecting.value && !!relayWs.value.trim() && DIGITS4.test(roomId.value) && DIGITS4.test(token.value);
     }
     const lessonId = common_vendor.ref(0);
     const planId = common_vendor.ref(0);
@@ -108,15 +105,23 @@ const _sfc_main = {
     const currentIndex = common_vendor.ref(0);
     const planCount = common_vendor.computed(() => planIds.value.length);
     const getToken = () => common_vendor.index.getStorageSync("token") || "";
+    function buildUrlWithQuery(url, query) {
+      const parts = [];
+      for (const [k, v] of Object.entries(query || {})) {
+        if (v === void 0 || v === null || v === "")
+          continue;
+        parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+      }
+      return parts.length ? `${url}?${parts.join("&")}` : url;
+    }
     const requestGet = (url, data) => new Promise((resolve, reject) => {
       common_vendor.index.request({
-        url,
+        url: data ? buildUrlWithQuery(url, data) : url,
         method: "GET",
         header: {
           Authorization: `Bearer ${getToken()}`,
           "Tenant-Id": "1"
         },
-        data,
         success: (res) => {
           var _a, _b;
           if (res.statusCode === 200 && ((_a = res.data) == null ? void 0 : _a.code) === 0)
@@ -127,25 +132,71 @@ const _sfc_main = {
         fail: reject
       });
     });
-    function mergePlanPayload(projects, materials) {
-      const ps = [...projects].sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-      const ms = [...materials].sort((a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id));
-      return ps.map((p, i) => {
-        const m = ms[i] || {};
-        const videoUrl = typeof m.videoUrl === "string" && m.videoUrl ? m.videoUrl : void 0;
-        const desc = m.description || m.title;
-        const instruction = typeof desc === "string" && desc ? desc : void 0;
-        const row = {
-          id: String(p.id),
-          title: p.itemName || `项目${p.id}`,
-          durationMin: Math.max(1, Math.round(Number(p.duration)) || 1)
-        };
-        if (videoUrl)
-          row.videoUrl = videoUrl;
-        if (instruction)
-          row.instruction = instruction;
-        return row;
+    function resolveProjectItemId(project) {
+      if (!project || typeof project !== "object")
+        return "";
+      const raw = project.itemId != null && project.itemId !== "" ? project.itemId : project.id;
+      if (raw == null || raw === "")
+        return "";
+      const s = String(raw).trim();
+      if (!s || s === "undefined" || s === "null")
+        return "";
+      return s;
+    }
+    function comparePlanProjects(a, b) {
+      const ao = a.sortOrder;
+      const bo = b.sortOrder;
+      if (ao != null && bo != null && Number(ao) !== Number(bo)) {
+        return Number(ao) - Number(bo);
+      }
+      const ai = resolveProjectItemId(a);
+      const bi = resolveProjectItemId(b);
+      return ai.localeCompare(bi, void 0, { numeric: true });
+    }
+    function mapProjectToPlanItem(project, materials) {
+      const ms = [...materials || []].sort(
+        (a, b) => (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)
+      );
+      const m = ms.find((row2) => typeof row2.videoUrl === "string" && row2.videoUrl) || ms[0] || {};
+      const videoUrl = typeof m.videoUrl === "string" && m.videoUrl ? m.videoUrl : void 0;
+      const desc = m.description || m.title;
+      const instruction = typeof desc === "string" && desc ? desc : void 0;
+      const pid = resolveProjectItemId(project);
+      const row = {
+        id: pid || String(project.id ?? ""),
+        title: project.itemName || `项目${pid || project.id}`,
+        durationMin: Math.max(1, Math.round(Number(project.duration)) || 1)
+      };
+      if (videoUrl)
+        row.videoUrl = videoUrl;
+      if (instruction)
+        row.instruction = instruction;
+      return row;
+    }
+    async function fetchPlanPayloadForScreen(pid) {
+      const projects = await requestGet(`${BASE_URL}/teaching/plan-project/list-by-plan`, {
+        planId: pid
       });
+      const sorted = [...projects].sort(comparePlanProjects);
+      const plan = await Promise.all(
+        sorted.map(async (p) => {
+          const itemId = resolveProjectItemId(p);
+          let materials = [];
+          if (itemId) {
+            try {
+              materials = await requestGet(`${BASE_URL}/teaching/plan-material/list-by-item`, {
+                planId: String(pid),
+                itemId
+              });
+              pushLog("info", "MATERIAL", `list-by-item planId=${pid} itemId=${itemId}`);
+            } catch {
+              materials = [];
+            }
+          }
+          return mapProjectToPlanItem(p, materials);
+        })
+      );
+      return plan;
     }
     function sendRaw(obj) {
       pushLog("out", "SEND", obj.type || "raw", obj);
@@ -154,7 +205,7 @@ const _sfc_main = {
       } catch (e) {
         statusLine.value = "发送失败";
         pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:260", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:301", e);
       }
     }
     function sendPingState() {
@@ -164,7 +215,7 @@ const _sfc_main = {
       sendRaw({ type: "command", name, payload });
     }
     function onSocketMessageHandler(res) {
-      var _a, _b, _c, _d;
+      var _a, _b, _c, _d, _e;
       pushLog("in", "RECV", "raw", res.data);
       try {
         const msg = JSON.parse(res.data);
@@ -173,15 +224,12 @@ const _sfc_main = {
           connecting.value = false;
           statusLine.value = "已加入房间";
           pushLog("ok", "JOINED", `roomId=${msg.roomId}`, msg);
-          try {
-            common_vendor.index.setStorageSync("relayWs", relayWs.value.trim());
-            common_vendor.index.setStorageSync("relayRoomId", roomId.value.trim());
-            common_vendor.index.setStorageSync("relayToken", token.value.trim());
-          } catch {
-          }
+          persistRelayCredentials();
           const authTok = getToken();
-          if (authTok)
-            sendCmd("setMediaAuth", { token: authTok });
+          if (authTok) {
+            sendCmd("setMediaAuth", { token: authTok, tenantId: "1" });
+            pushLog("out", "setMediaAuth", "已同步视频访问令牌");
+          }
           void pushSetPlan();
           return;
         }
@@ -190,13 +238,20 @@ const _sfc_main = {
           const idx = msg.state.plan.findIndex((p) => p.id === msg.state.currentItemId);
           if (idx >= 0)
             currentIndex.value = idx;
-          pushLog("info", "STATE", `plan=${msg.state.plan.length}项 paused=${msg.state.paused}`);
+          const cur = msg.state.plan.find((p) => p.id === msg.state.currentItemId) || msg.state.plan[0];
+          const hasToken = !!(msg.state.mediaBearerToken && String(msg.state.mediaBearerToken).length);
+          pushLog("info", "STATE", `plan=${msg.state.plan.length} paused=${msg.state.paused} videoPlaying=${msg.state.videoPlaying}`);
+          pushLog("info", "VIDEO", `token=${hasToken ? "有" : "无"} url=${(cur == null ? void 0 : cur.videoUrl) ? "有" : "无"}`, {
+            videoUrl: (cur == null ? void 0 : cur.videoUrl) || "",
+            tokenPrefix: hasToken ? String(msg.state.mediaBearerToken).slice(0, 8) : ""
+          });
           return;
         }
         if (msg.type === "state") {
           pushLog("info", "STATE", "状态更新", {
             paused: (_c = msg.state) == null ? void 0 : _c.paused,
-            currentItemId: (_d = msg.state) == null ? void 0 : _d.currentItemId
+            currentItemId: (_d = msg.state) == null ? void 0 : _d.currentItemId,
+            videoPlaying: (_e = msg.state) == null ? void 0 : _e.videoPlaying
           });
           return;
         }
@@ -249,18 +304,6 @@ const _sfc_main = {
         pushLog("warn", "CLOSE", `code=${(res == null ? void 0 : res.code) ?? "-"} reason=${(res == null ? void 0 : res.reason) || "-"}`, res);
       });
     }
-    function handleDisconnect() {
-      pushLog("info", "DISCONNECT", "主动断开");
-      clearSocketListeners();
-      try {
-        common_vendor.index.closeSocket();
-      } catch {
-      }
-      socketJoined.value = false;
-      connecting.value = false;
-      socketOpen.value = false;
-      statusLine.value = "已断开";
-    }
     function handleConnect() {
       if (socketJoined.value)
         return;
@@ -273,6 +316,7 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "房间号与令牌均为4位数字", icon: "none" });
         return;
       }
+      persistRelayCredentials();
       statusLine.value = "";
       connecting.value = true;
       socketOpen.value = false;
@@ -293,7 +337,7 @@ const _sfc_main = {
           socketOpen.value = false;
           statusLine.value = "无法发起连接";
           pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:404", err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:438", err);
         }
       });
     }
@@ -304,18 +348,7 @@ const _sfc_main = {
       }
       loadingPlan.value = true;
       try {
-        const projects = await requestGet(`${BASE_URL}/teaching/plan-project/list-by-plan`, {
-          planId: planId.value
-        });
-        let materials = [];
-        try {
-          materials = await requestGet(`${BASE_URL}/teaching/plan-material/list-by-plan`, {
-            planId: planId.value
-          });
-        } catch {
-          materials = [];
-        }
-        const plan = mergePlanPayload(projects, materials);
+        const plan = await fetchPlanPayloadForScreen(planId.value);
         if (!plan.length) {
           common_vendor.index.showToast({ title: "训练项为空", icon: "none" });
           loadingPlan.value = false;
@@ -324,13 +357,21 @@ const _sfc_main = {
         planIds.value = plan.map((p) => p.id);
         currentIndex.value = 0;
         const mediaTok = getToken();
-        if (mediaTok)
-          sendCmd("setMediaAuth", { token: mediaTok });
-        sendCmd("setPlan", { plan, currentItemId: plan[0].id, mediaBearerToken: mediaTok });
-        pushLog("out", "setPlan", `下发 ${plan.length} 项`, { currentItemId: plan[0].id });
+        const withVideo = plan.filter((p) => p.videoUrl).length;
+        sendCmd("setPlan", {
+          plan,
+          currentItemId: plan[0].id,
+          mediaBearerToken: mediaTok
+        });
+        pushLog("out", "setPlan", `下发 ${plan.length} 项，含视频 ${withVideo} 项`, {
+          currentItemId: plan[0].id,
+          videoUrl: plan[0].videoUrl || "(无)",
+          hasMediaToken: !!mediaTok,
+          tokenPrefix: mediaTok ? mediaTok.slice(0, 8) : ""
+        });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:439", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:473", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;
@@ -345,6 +386,7 @@ const _sfc_main = {
     }
     function toggleVideo() {
       sendCmd("toggleVideo");
+      pushLog("out", "toggleVideo", "已发送 视频开/关（大屏 videoPlaying 将切换）");
     }
     function endTraining() {
       sendCmd("pause");
@@ -357,17 +399,29 @@ const _sfc_main = {
       lessonId.value = parseInt(opts.lessonId, 10) || 0;
       planId.value = parseInt(opts.planId, 10) || 0;
       planTitle.value = decodeURIComponent(opts.planTitle || "");
-      const savedWs = common_vendor.index.getStorageSync("relayWs");
-      if (typeof savedWs === "string" && savedWs)
-        relayWs.value = savedWs;
-      const savedRoom = common_vendor.index.getStorageSync("relayRoomId");
-      if (typeof savedRoom === "string" && savedRoom)
-        roomId.value = savedRoom;
-      const savedToken = common_vendor.index.getStorageSync("relayToken");
-      if (typeof savedToken === "string" && savedToken)
-        token.value = savedToken;
+      if (utils_platform.isH5Client() && (!planId.value || planId.value <= 0)) {
+        common_vendor.index.showToast({ title: "请从「选择训练计划」进入遥控", icon: "none", duration: 2500 });
+        setTimeout(() => {
+          const token2 = common_vendor.index.getStorageSync("token");
+          if (token2)
+            common_vendor.index.switchTab({ url: "/pages/home/home" });
+          else
+            common_vendor.index.reLaunch({ url: "/pages/index/index" });
+        }, 400);
+        return;
+      }
+      loadRelayCredentials();
+      if (!common_vendor.index.getStorageSync(utils_relayConfig.RELAY_STORAGE_KEYS.roomId)) {
+        persistRelayCredentials();
+      }
       common_vendor.index.setNavigationBarTitle({ title: "大屏遥控" });
-      pushLog("info", "INIT", `planId=${planId.value} ws=${relayWs.value}`);
+      pushLog("info", "INIT", `planId=${planId.value} ws=${relayWs.value} room=${roomId.value}`);
+      if (canAutoConnect()) {
+        setTimeout(() => {
+          if (canAutoConnect())
+            handleConnect();
+        }, 400);
+      }
     });
     common_vendor.onUnmounted(() => {
       clearSocketListeners();
@@ -378,36 +432,26 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: relayWs.value,
-        b: common_vendor.o(($event) => relayWs.value = $event.detail.value, "52"),
-        c: common_vendor.o(normalizeRoomFields, "d9"),
-        d: roomId.value,
-        e: common_vendor.o(($event) => roomId.value = $event.detail.value, "bf"),
-        f: common_vendor.o(normalizeRoomFields, "32"),
-        g: token.value,
-        h: common_vendor.o(($event) => token.value = $event.detail.value, "b8"),
-        i: common_vendor.o(pasteJoinInfo, "3a"),
-        j: common_vendor.t(socketJoined.value ? "已连接" : connecting.value ? "连接中…" : "连接"),
-        k: connecting.value,
-        l: common_vendor.o(handleConnect, "2b"),
-        m: connecting.value || socketJoined.value
-      }, connecting.value || socketJoined.value ? {
-        n: common_vendor.o(handleDisconnect, "89")
-      } : {}, {
-        o: common_vendor.t(phaseLabel.value),
-        p: common_vendor.n(phaseClass.value),
-        q: statusLine.value
+        a: !socketJoined.value
+      }, !socketJoined.value ? common_vendor.e({
+        b: common_vendor.t(phaseLabel.value),
+        c: common_vendor.n(phaseClass.value),
+        d: statusLine.value
       }, statusLine.value ? {
-        r: common_vendor.t(statusLine.value)
+        e: common_vendor.t(statusLine.value)
       } : {}, {
-        s: common_vendor.t(showDebug.value ? "收起" : "展开"),
-        t: common_vendor.o(($event) => showDebug.value = !showDebug.value, "74"),
-        v: showDebug.value
+        f: !connecting.value && connectionPhase.value !== "open"
+      }, !connecting.value && connectionPhase.value !== "open" ? {
+        g: common_vendor.o(handleConnect, "e0")
+      } : {}) : {}, {
+        h: common_vendor.t(showDebug.value ? "收起" : "展开"),
+        i: common_vendor.o(($event) => showDebug.value = !showDebug.value, "66"),
+        j: showDebug.value
       }, showDebug.value ? common_vendor.e({
-        w: common_vendor.o(clearDebugLogs, "8e"),
-        x: !socketJoined.value,
-        y: common_vendor.o(sendPingState, "60"),
-        z: common_vendor.f(debugLogs.value, (row, i, i0) => {
+        k: common_vendor.o(clearDebugLogs, "9c"),
+        l: !socketJoined.value,
+        m: common_vendor.o(sendPingState, "6d"),
+        n: common_vendor.f(debugLogs.value, (row, i, i0) => {
           return {
             a: common_vendor.t(row.time),
             b: common_vendor.t(row.tag),
@@ -416,29 +460,29 @@ const _sfc_main = {
             e: common_vendor.n("log-" + row.level)
           };
         }),
-        A: !debugLogs.value.length
+        o: !debugLogs.value.length
       }, !debugLogs.value.length ? {} : {}, {
-        B: logScrollTop.value
+        p: logScrollTop.value
       }) : {}, {
-        C: socketJoined.value
+        q: socketJoined.value
       }, socketJoined.value ? {
-        D: common_vendor.t(planTitle.value),
-        E: common_vendor.t(planCount.value),
-        F: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
-        G: loadingPlan.value,
-        H: common_vendor.o(pushSetPlan, "40")
+        r: common_vendor.t(planTitle.value),
+        s: common_vendor.t(planCount.value),
+        t: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
+        v: loadingPlan.value,
+        w: common_vendor.o(pushSetPlan, "cb")
       } : {}, {
-        I: socketJoined.value && planIds.value.length
+        x: socketJoined.value && planIds.value.length
       }, socketJoined.value && planIds.value.length ? {
-        J: common_vendor.o(($event) => sendCmd("resume"), "28"),
-        K: common_vendor.o(($event) => sendCmd("pause"), "e0"),
-        L: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "68"),
-        M: currentIndex.value <= 0,
-        N: common_vendor.o(($event) => shiftItem(-1), "9a"),
-        O: currentIndex.value >= planIds.value.length - 1,
-        P: common_vendor.o(($event) => shiftItem(1), "45"),
-        Q: common_vendor.o(toggleVideo, "99"),
-        R: common_vendor.o(endTraining, "a2")
+        y: common_vendor.o(($event) => sendCmd("resume"), "b3"),
+        z: common_vendor.o(($event) => sendCmd("pause"), "6c"),
+        A: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "80"),
+        B: currentIndex.value <= 0,
+        C: common_vendor.o(($event) => shiftItem(-1), "c6"),
+        D: currentIndex.value >= planIds.value.length - 1,
+        E: common_vendor.o(($event) => shiftItem(1), "4d"),
+        F: common_vendor.o(toggleVideo, "11"),
+        G: common_vendor.o(endTraining, "10")
       } : {});
     };
   }

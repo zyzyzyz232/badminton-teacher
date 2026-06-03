@@ -1,5 +1,7 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const services_userProfile = require("../../services/userProfile.js");
+const services_trainingPlanApi = require("../../services/trainingPlanApi.js");
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "my-courses",
@@ -46,17 +48,15 @@ const _sfc_main = {
       const minute = minutes[value[2]].replace("分", "");
       return `${year}-${month}-${day} ${hour}:${minute}:00`;
     };
-    const getTeacherId = () => {
-      const userInfo = common_vendor.index.getStorageSync("userInfo");
-      return (userInfo == null ? void 0 : userInfo.id) || 0;
-    };
-    const getCourseList = () => {
-      const teacherId = getTeacherId();
-      if (!teacherId) {
-        common_vendor.index.showToast({ title: "请先登录", icon: "none" });
+    const getCourseList = async () => {
+      let teacherId;
+      let token;
+      try {
+        ({ teacherId, token } = await services_userProfile.ensureTeacherSession());
+      } catch (err) {
+        common_vendor.index.showToast({ title: (err == null ? void 0 : err.message) || "请先登录", icon: "none" });
         return;
       }
-      const token = common_vendor.index.getStorageSync("token");
       common_vendor.index.showLoading({ title: "加载中..." });
       common_vendor.index.request({
         url: `${BASE_URL}/teaching/course/list-by-teacher`,
@@ -103,7 +103,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:242", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:240", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -153,8 +153,12 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "请选择结束时间", icon: "none" });
         return;
       }
-      const teacherId = getTeacherId();
+      const teacherId = services_trainingPlanApi.getTeacherIdFromStorage();
       const token = common_vendor.index.getStorageSync("token");
+      if (!teacherId || !token) {
+        common_vendor.index.showToast({ title: "请先登录", icon: "none" });
+        return;
+      }
       const courseTime = `${form.startTime} 至 ${form.endTime}`;
       common_vendor.index.showLoading({ title: "创建中..." });
       common_vendor.index.request({
@@ -184,7 +188,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:341", "创建失败:", err);
+          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:343", "创建失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });

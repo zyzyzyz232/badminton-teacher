@@ -69,6 +69,23 @@ const _sfc_main = {
       selectedPlanId.value = plan.id;
       fetchPlanProjects(plan.id);
     };
+    function goAfterPlanBound() {
+      const selectedPlan = planList.value.find((p) => p.id === selectedPlanId.value);
+      const q = [
+        `lessonId=${lessonId.value}`,
+        `planId=${selectedPlanId.value}`,
+        `planTitle=${encodeURIComponent(selectedPlan && selectedPlan.planTitle || "")}`,
+        `lessonName=${encodeURIComponent(lessonName.value || "")}`,
+        `courseName=${encodeURIComponent(courseName.value || "")}`
+      ].join("&");
+      common_vendor.index.navigateTo({
+        url: `/pages/screen-control/screen-control?${q}`,
+        fail: (err) => {
+          common_vendor.index.__f__("error", "at pages/training-plan-select/training-plan-select.vue:192", err);
+          common_vendor.index.showToast({ title: "跳转失败", icon: "none" });
+        }
+      });
+    }
     const confirmPlan = () => {
       if (!selectedPlanId.value)
         return;
@@ -87,23 +104,10 @@ const _sfc_main = {
               courseId: courseId.value || void 0
             });
             common_vendor.index.hideLoading();
-            const q = [
-              `lessonId=${lessonId.value}`,
-              `planId=${selectedPlanId.value}`,
-              `planTitle=${encodeURIComponent(selectedPlan.planTitle || "")}`,
-              `lessonName=${encodeURIComponent(lessonName.value || "")}`,
-              `courseName=${encodeURIComponent(courseName.value || "")}`
-            ].join("&");
-            common_vendor.index.navigateTo({
-              url: `/pages/screen-control/screen-control?${q}`,
-              fail: (err) => {
-                common_vendor.index.__f__("error", "at pages/training-plan-select/training-plan-select.vue:208", err);
-                common_vendor.index.showToast({ title: "跳转失败", icon: "none" });
-              }
-            });
+            goAfterPlanBound();
           } catch (err) {
             common_vendor.index.hideLoading();
-            common_vendor.index.__f__("error", "at pages/training-plan-select/training-plan-select.vue:214", err);
+            common_vendor.index.__f__("error", "at pages/training-plan-select/training-plan-select.vue:219", err);
             common_vendor.index.showToast({
               title: err && err.message || "绑定课堂失败",
               icon: "none",
@@ -187,7 +191,7 @@ const _sfc_main = {
         e: !loading.value,
         f: planList.value.length > 0
       }, planList.value.length > 0 ? {
-        g: common_vendor.t(selectedPlanId.value ? "确认选择" : "请选择训练计划"),
+        g: common_vendor.t(selectedPlanId.value ? "确认并开始训练" : "请选择训练计划"),
         h: !selectedPlanId.value,
         i: common_vendor.o(confirmPlan, "84")
       } : {});

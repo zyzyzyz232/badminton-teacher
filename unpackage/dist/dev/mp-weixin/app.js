@@ -22,14 +22,14 @@ if (!Math) {
   "./pages/material-manage/material-manage.js";
 }
 const _sfc_main = {
-  onLaunch: function() {
-    common_vendor.index.__f__("log", "at App.vue:4", "App Launch");
+  onLaunch() {
+    common_vendor.index.__f__("log", "at App.vue:20", "App Launch");
   },
-  onShow: function() {
-    common_vendor.index.__f__("log", "at App.vue:7", "App Show");
+  onShow() {
+    common_vendor.index.__f__("log", "at App.vue:23", "App Show");
   },
-  onHide: function() {
-    common_vendor.index.__f__("log", "at App.vue:10", "App Hide");
+  onHide() {
+    common_vendor.index.__f__("log", "at App.vue:26", "App Hide");
   }
 };
 function createApp() {
