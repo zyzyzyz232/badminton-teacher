@@ -6,6 +6,26 @@ const PORT = Number(process.env.PORT ?? 3456);
 const rooms = new Map();
 const meta = new Map();
 const DIGITS4 = /^\d{4}$/;
+function normalizeCode(value) {
+    return String(value ?? '').replace(/\D/g, '').slice(0, 4);
+}
+const PINNED_ROOM_ID = normalizeCode(process.env.RELAY_PINNED_ROOM_ID ?? '1001');
+const PINNED_TOKEN = normalizeCode(process.env.RELAY_PINNED_TOKEN ?? '2002');
+function ensurePinnedRoom() {
+    if (!DIGITS4.test(PINNED_ROOM_ID) || !DIGITS4.test(PINNED_TOKEN)) {
+        console.warn('[relay] 跳过预置房间：RELAY_PINNED_ROOM_ID / RELAY_PINNED_TOKEN 须为 4 位数字');
+        return;
+    }
+    if (rooms.has(PINNED_ROOM_ID))
+        return;
+    rooms.set(PINNED_ROOM_ID, {
+        id: PINNED_ROOM_ID,
+        token: PINNED_TOKEN,
+        state: createInitialState(),
+        clients: new Set(),
+    });
+    console.log(`[relay] 预置房间 roomId=${PINNED_ROOM_ID} token=${PINNED_TOKEN}`);
+}
 function randomDigits4() {
     const n = randomBytes(2).readUInt16BE(0) % 10000;
     return String(n).padStart(4, '0');
@@ -58,55 +78,88 @@ function detachClient(ws) {
     m.roomId = null;
     m.role = null;
 }
+function joinRoomWithCredentials(ws, role, roomId, token, createIfMissing) {
+    const m = meta.get(ws);
+    if (!DIGITS4.test(roomId) || !DIGITS4.test(token)) {
+        send(ws, { type: 'error', code: 'bad_join', message: '房间号与令牌均为4位数字' });
+        return;
+    }
+    let room = getRoom(roomId);
+    if (!room) {
+        if (!createIfMissing) {
+            send(ws, {
+                type: 'error',
+                code: 'unauthorized',
+                message: '房间不存在或令牌错误，请先启动大屏或确认中继已重启',
+            });
+            return;
+        }
+        room = {
+            id: roomId,
+            token,
+            state: createInitialState(),
+            clients: new Set(),
+        };
+        rooms.set(room.id, room);
+    }
+    else if (room.token !== token) {
+        send(ws, { type: 'error', code: 'unauthorized', message: '房间号已占用且令牌不匹配' });
+        return;
+    }
+    attachClient(ws, room);
+    m.roomId = room.id;
+    m.role = role;
+    send(ws, {
+        type: 'joined',
+        roomId: room.id,
+        token: room.token,
+        role,
+        state: room.state,
+    });
+}
 function handleJoin(ws, msg) {
     const m = meta.get(ws);
     if (m.roomId) {
         send(ws, { type: 'error', code: 'already_joined', message: '已加入房间' });
         return;
     }
-    if (msg.role === 'display' && !msg.roomId) {
+    const role = String(msg.role ?? '').toLowerCase();
+    const roomId = normalizeCode(msg.roomId);
+    const token = normalizeCode(msg.token);
+    if (role === 'display') {
+        if (roomId && token) {
+            joinRoomWithCredentials(ws, 'display', roomId, token, true);
+            return;
+        }
         const id = randomRoomId();
-        const token = randomToken();
+        const randomTok = randomToken();
         const room = {
             id,
-            token,
+            token: randomTok,
             state: createInitialState(),
-            clients: new Set([ws]),
+            clients: new Set(),
         };
         rooms.set(id, room);
-        m.roomId = id;
+        attachClient(ws, room);
         m.role = 'display';
         send(ws, {
             type: 'joined',
             roomId: id,
-            token,
+            token: randomTok,
             role: 'display',
             state: room.state,
         });
         return;
     }
-    if (!msg.roomId || !msg.token) {
-        send(ws, { type: 'error', code: 'bad_join', message: '缺少房间号或令牌' });
+    if (role === 'mobile') {
+        if (!roomId || !token) {
+            send(ws, { type: 'error', code: 'bad_join', message: '缺少房间号或令牌' });
+            return;
+        }
+        joinRoomWithCredentials(ws, 'mobile', roomId, token, true);
         return;
     }
-    if (!DIGITS4.test(msg.roomId) || !DIGITS4.test(msg.token)) {
-        send(ws, { type: 'error', code: 'bad_join', message: '房间号与令牌均为4位数字' });
-        return;
-    }
-    const room = getRoom(msg.roomId);
-    if (!room || room.token !== msg.token) {
-        send(ws, { type: 'error', code: 'unauthorized', message: '房间不存在或令牌错误' });
-        return;
-    }
-    attachClient(ws, room);
-    m.role = msg.role;
-    send(ws, {
-        type: 'joined',
-        roomId: room.id,
-        token: room.token,
-        role: msg.role,
-        state: room.state,
-    });
+    send(ws, { type: 'error', code: 'bad_role', message: `未知角色: ${msg.role ?? '(空)'}` });
 }
 function handleCommand(ws, msg) {
     const m = meta.get(ws);
@@ -159,6 +212,7 @@ server.on('upgrade', (req, socket, head) => {
     });
 });
 server.listen(PORT, '0.0.0.0', () => {
+    ensurePinnedRoom();
     console.log(`[relay] WebSocket listening on 0.0.0.0:${PORT} (e.g. ws://localhost:${PORT} or ws://<LAN-IP>:${PORT})`);
     console.log(`[relay] HTTP health check: http://localhost:${PORT}/`);
 });

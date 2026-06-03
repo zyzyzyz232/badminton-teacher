@@ -1,6 +1,16 @@
 <template>
   <view class="container">
-    <!-- 顶部信息 -->
+    <!-- 顶部导航 -->
+    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="nav-back" @click="goBack">
+        <text class="nav-back-icon">‹</text>
+        <text class="nav-back-text">返回</text>
+      </view>
+      <text class="nav-title">资料管理</text>
+      <view class="nav-placeholder" />
+    </view>
+
+    <!-- 项目信息 -->
     <view class="header">
       <view class="header-content">
         <text class="project-name">{{ projectName }}</text>
@@ -9,12 +19,26 @@
     </view>
 
     <!-- 资料列表 -->
-    <scroll-view scroll-y class="material-list">
-      <!-- 上传按钮 -->
+    <scroll-view scroll-y class="material-list" :style="{ height: listHeight }">
+      <!-- 上传类型 + 上传按钮 -->
       <view class="upload-section">
+        <view class="upload-type-row">
+          <text class="upload-type-label">上传资料类型</text>
+          <view class="type-segment type-segment-inline">
+            <view
+              v-for="(label, idx) in materialTypeOptions"
+              :key="idx"
+              class="type-segment-item"
+              :class="{ active: uploadForm.materialType === idx + 1 }"
+              @click="setMaterialType(idx + 1)"
+            >
+              {{ label }}
+            </view>
+          </view>
+        </view>
         <view class="upload-btn" @click="chooseFile">
           <text class="upload-icon">+</text>
-          <text>上传资料（图片/视频）</text>
+          <text>上传{{ uploadForm.materialType === 1 ? '图片' : '视频' }}</text>
         </view>
       </view>
 
@@ -55,9 +79,9 @@
             <text class="material-time">{{ formatTime(item.createTime) }}</text>
           </view>
 
-          <!-- 删除按钮 -->
           <view class="material-actions">
-            <text class="delete-btn" @click="deleteMaterial(item, index)">删除</text>
+            <text class="action-btn type-btn" @click="changeMaterialType(item)">修改类型</text>
+            <text class="action-btn delete-btn" @click="deleteMaterial(item, index)">删除</text>
           </view>
         </view>
       </view>
@@ -96,9 +120,17 @@
           <!-- 资料类型 -->
           <view class="form-item">
             <text class="form-label">资料类型</text>
-            <picker mode="selector" :range="materialTypeOptions" :value="uploadForm.materialType - 1" @change="onMaterialTypeChange">
-              <view class="form-picker">{{ materialTypeOptions[uploadForm.materialType - 1] }}</view>
-            </picker>
+            <view class="type-segment">
+              <view
+                v-for="(label, idx) in materialTypeOptions"
+                :key="idx"
+                class="type-segment-item"
+                :class="{ active: uploadForm.materialType === idx + 1 }"
+                @click.stop="setMaterialType(idx + 1)"
+              >
+                {{ label }}
+              </view>
+            </view>
           </view>
 
           <!-- 资料标题 -->
@@ -124,9 +156,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 
 const API_BASE = 'http://10.112.189.54:48080/admin-api'
+
+const statusBarHeight = ref(0)
+try {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 0
+} catch {
+  statusBarHeight.value = 0
+}
+
+const listHeight = computed(() => {
+  const top = statusBarHeight.value + 44 + 120
+  return `calc(100vh - ${top}px)`
+})
 
 // 页面参数
 const planId = ref(0)
@@ -148,9 +193,24 @@ const uploadForm = ref({
 
 const materialTypeOptions = ['图片', '视频']
 
-// 获取token
-const getToken = () => {
-  return uni.getStorageSync('token') || ''
+const getToken = () => uni.getStorageSync('token') || ''
+
+const authHeader = () => ({
+  Authorization: `Bearer ${getToken()}`,
+  'Tenant-Id': '1',
+})
+
+const goBack = () => {
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack()
+    return
+  }
+  uni.navigateBack({
+    fail: () => {
+      uni.redirectTo({ url: '/pages/training-plan/training-plan' })
+    },
+  })
 }
 
 // 获取资料列表
@@ -161,13 +221,11 @@ const fetchMaterialList = async () => {
     const res = await uni.request({
       url: `${API_BASE}/teaching/plan-material/list-by-item`,
       method: 'GET',
-      header: {
-        'Authorization': `Bearer ${getToken()}`
-      },
+      header: authHeader(),
       data: {
         planId: planId.value,
-        itemId: itemId.value
-      }
+        itemId: itemId.value,
+      },
     })
 
     uni.hideLoading()
@@ -184,24 +242,28 @@ const fetchMaterialList = async () => {
   }
 }
 
-// 选择文件
 const chooseFile = () => {
   const isImage = uploadForm.value.materialType === 1
-
   if (isImage) {
     uni.chooseImage({
       count: 1,
       success: (res) => {
         tempFilePath.value = res.tempFilePaths[0]
         showUploadModal.value = true
-      }
+      },
+      fail: () => {
+        uni.showToast({ title: '未选择图片', icon: 'none' })
+      },
     })
   } else {
     uni.chooseVideo({
       success: (res) => {
         tempFilePath.value = res.tempFilePath
         showUploadModal.value = true
-      }
+      },
+      fail: () => {
+        uni.showToast({ title: '未选择视频', icon: 'none' })
+      },
     })
   }
 }
@@ -218,8 +280,57 @@ const closeUploadModal = () => {
 }
 
 // 资料类型选择
-const onMaterialTypeChange = (e) => {
-  uploadForm.value.materialType = e.detail.value + 1
+const setMaterialType = (type) => {
+  uploadForm.value.materialType = type
+}
+
+const changeMaterialType = (item) => {
+  uni.showActionSheet({
+    itemList: materialTypeOptions,
+    success: (res) => {
+      const newType = res.tapIndex + 1
+      if (newType === item.materialType) return
+      doUpdateMaterialType(item, newType)
+    },
+  })
+}
+
+const doUpdateMaterialType = async (item, materialType) => {
+  try {
+    uni.showLoading({ title: '保存中...' })
+    const body = {
+      id: item.id,
+      planId: planId.value,
+      itemId: itemId.value,
+      materialType,
+      imageUrl: item.imageUrl || '',
+      videoUrl: item.videoUrl || '',
+      title: item.title || '',
+      description: item.description || '',
+      duration: item.duration,
+      sortOrder: item.sortOrder,
+    }
+    const res = await uni.request({
+      url: `${API_BASE}/teaching/plan-material/update`,
+      method: 'PUT',
+      header: {
+        ...authHeader(),
+        'Content-Type': 'application/json',
+      },
+      data: body,
+    })
+    uni.hideLoading()
+    if (res.data?.code === 0) {
+      uni.showToast({ title: '类型已更新', icon: 'success' })
+      fetchMaterialList()
+    } else {
+      uni.showToast({ title: res.data?.msg || '更新失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.hideLoading()
+    console.error(e)
+    uni.showToast({ title: '更新失败', icon: 'none' })
+  }
 }
 
 // 上传资料
@@ -236,9 +347,7 @@ const uploadMaterial = async () => {
       url: `${API_BASE}/teaching/plan-material/upload`,
       filePath: tempFilePath.value,
       name: 'file',
-      header: {
-        'Authorization': `Bearer ${getToken()}`
-      },
+      header: authHeader(),
       formData: {
         planId: planId.value,
         itemId: itemId.value,
@@ -323,23 +432,18 @@ const formatTime = (timeStr) => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`
 }
 
-onMounted(() => {
-  // 获取页面参数
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = currentPage.options
-
-  planId.value = parseInt(options.planId) || 0
-  itemId.value = parseInt(options.itemId) || 0
-  projectName.value = options.projectName || '训练项目'
-  planTitle.value = options.planTitle || ''
-
-  uni.setNavigationBarTitle({
-    title: '资料管理'
-  })
+onLoad((options) => {
+  planId.value = parseInt(options?.planId, 10) || 0
+  itemId.value = parseInt(options?.itemId, 10) || 0
+  projectName.value = options?.projectName
+    ? decodeURIComponent(options.projectName)
+    : '训练项目'
+  planTitle.value = options?.planTitle ? decodeURIComponent(options.planTitle) : ''
 
   if (planId.value && itemId.value) {
     fetchMaterialList()
+  } else {
+    uni.showToast({ title: '参数不完整', icon: 'none' })
   }
 })
 </script>
@@ -348,12 +452,52 @@ onMounted(() => {
 .container {
   min-height: 100vh;
   background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 顶部信息 */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 24rpx 16rpx;
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+  min-width: 120rpx;
+  padding: 8rpx 0;
+}
+
+.nav-back-icon {
+  font-size: 44rpx;
+  line-height: 1;
+  margin-right: 4rpx;
+  font-weight: 300;
+}
+
+.nav-back-text {
+  font-size: 28rpx;
+}
+
+.nav-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.nav-placeholder {
+  min-width: 120rpx;
+}
+
 .header {
   background: linear-gradient(135deg, #07c160, #0ebf8c);
-  padding: 40rpx;
+  padding: 0 40rpx 32rpx;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -373,14 +517,33 @@ onMounted(() => {
   opacity: 0.9;
 }
 
-/* 资料列表 */
 .material-list {
+  flex: 1;
   padding: 20rpx;
+  box-sizing: border-box;
 }
 
-/* 上传按钮 */
 .upload-section {
   margin-bottom: 20rpx;
+}
+
+.upload-type-row {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.upload-type-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+  font-weight: 500;
+}
+
+.type-segment-inline {
+  margin-top: 0;
 }
 
 .upload-btn {
@@ -494,17 +657,24 @@ onMounted(() => {
   color: #999;
 }
 
-/* 操作按钮 */
 .material-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 24rpx;
   padding: 0 24rpx 24rpx;
 }
 
-.delete-btn {
+.action-btn {
   font-size: 26rpx;
-  color: #ff4d4f;
   padding: 8rpx 20rpx;
+}
+
+.type-btn {
+  color: #07c160;
+}
+
+.delete-btn {
+  color: #ff4d4f;
 }
 
 /* 空状态 */
@@ -623,6 +793,31 @@ onMounted(() => {
   color: #333;
   display: flex;
   align-items: center;
+}
+
+.type-segment {
+  display: flex;
+  gap: 16rpx;
+}
+
+.type-segment-item {
+  flex: 1;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  border-radius: 10rpx;
+  font-size: 28rpx;
+  color: #666;
+  border: 2rpx solid transparent;
+}
+
+.type-segment-item.active {
+  background: #e8f8ef;
+  color: #07c160;
+  border-color: #07c160;
+  font-weight: 600;
 }
 
 .form-textarea {

@@ -540,6 +540,31 @@ export async function saveTrainingPlanArrangement(payload) {
 		if (Number.isFinite(pid)) byId.set(pid, p)
 	}
 	const slots = Array.isArray(payload.slots) ? payload.slots : []
+	const existingIds = new Set(
+		(Array.isArray(existingList) ? existingList : [])
+			.map((p) => (p.id != null ? Number(p.id) : NaN))
+			.filter((n) => Number.isFinite(n)),
+	)
+	for (const slot of slots) {
+		const proj = slot && slot.project
+		if (!proj || proj.id == null || proj.id === '') continue
+		const sid = String(proj.id)
+		if (sid.startsWith('demo-') || sid.startsWith('tmp_') || sid.startsWith('new_')) continue
+		const id = parseInt(sid, 10)
+		if (!Number.isFinite(id) || existingIds.has(id)) continue
+		await associatePlanProject(id, planIdNum)
+		existingIds.add(id)
+	}
+	try {
+		existingList = await fetchPlanProjectsByPlan(planIdNum)
+	} catch {
+		existingList = []
+	}
+	byId.clear()
+	for (const p of Array.isArray(existingList) ? existingList : []) {
+		const pid = p.id != null ? Number(p.id) : NaN
+		if (Number.isFinite(pid)) byId.set(pid, p)
+	}
 	let order = 0
 	for (let i = 0; i < slots.length; i++) {
 		const proj = slots[i] && slots[i].project

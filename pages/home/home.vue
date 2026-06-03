@@ -69,8 +69,10 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, computed } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { ensureTeacherSession } from '../../services/userProfile.js';
+import { getTeacherNameFromStorage } from '../../services/trainingPlanApi.js';
 
 // 接口基础地址
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
@@ -84,22 +86,9 @@ const totalClasses = computed(() => {
   return courseGroups.reduce((total, course) => total + course.classes.length, 0);
 });
 
-// 获取教师信息
-const getTeacherInfo = () => {
-  const userInfo = uni.getStorageSync('userInfo');
-  teacherName.value = userInfo?.nickname || userInfo?.username || '老师';
-  return userInfo?.id || 0;
-};
-
 // 按课程分组获取班级列表
-const getClassList = () => {
-  const teacherId = getTeacherInfo();
-  if (!teacherId) {
-    uni.showToast({ title: '请先登录', icon: 'none' });
-    return;
-  }
-
-  const token = uni.getStorageSync('token');
+const getClassList = (teacherId, token) => {
+  teacherName.value = getTeacherNameFromStorage() || '老师';
   uni.showLoading({ title: '加载中...' });
 
   // 先获取课程列表
@@ -192,9 +181,18 @@ const goToMyCourses = () => {
   });
 };
 
-// 生命周期
+const loadPage = async () => {
+  try {
+    const { teacherId, token } = await ensureTeacherSession();
+    getClassList(teacherId, token);
+  } catch (err) {
+    console.error(err);
+    uni.showToast({ title: err?.message || '请先登录', icon: 'none' });
+  }
+};
+
 onShow(() => {
-  getClassList();
+  loadPage();
 });
 </script>
 

@@ -105,6 +105,8 @@
 </template>
 
 <script setup>
+import { ensureTeacherSession } from '../../services/userProfile.js';
+import { getTeacherIdFromStorage } from '../../services/trainingPlanApi.js';
 import { reactive, ref, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
@@ -176,21 +178,17 @@ const convertToDateTime = (value) => {
   return `${year}-${month}-${day} ${hour}:${minute}:00`;
 };
 
-// 获取教师ID
-const getTeacherId = () => {
-  const userInfo = uni.getStorageSync('userInfo');
-  return userInfo?.id || 0;
-};
-
 // 获取课程列表
-const getCourseList = () => {
-  const teacherId = getTeacherId();
-  if (!teacherId) {
-    uni.showToast({ title: '请先登录', icon: 'none' });
+const getCourseList = async () => {
+  let teacherId;
+  let token;
+  try {
+    ({ teacherId, token } = await ensureTeacherSession());
+  } catch (err) {
+    uni.showToast({ title: err?.message || '请先登录', icon: 'none' });
     return;
   }
 
-  const token = uni.getStorageSync('token');
   uni.showLoading({ title: '加载中...' });
 
   uni.request({
@@ -303,8 +301,12 @@ const createCourse = () => {
     return;
   }
 
-  const teacherId = getTeacherId();
+  const teacherId = getTeacherIdFromStorage();
   const token = uni.getStorageSync('token');
+  if (!teacherId || !token) {
+    uni.showToast({ title: '请先登录', icon: 'none' });
+    return;
+  }
 
   // 组合课程时间显示
   const courseTime = `${form.startTime} 至 ${form.endTime}`;

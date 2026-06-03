@@ -80,7 +80,7 @@
       <!-- 底部按钮 -->
       <view class="bottom-actions" v-if="planList.length > 0">
         <button class="confirm-btn" :disabled="!selectedPlanId" @click="confirmPlan">
-          {{ selectedPlanId ? '确认选择' : '请选择训练计划' }}
+          {{ selectedPlanId ? '确认并开始训练' : '请选择训练计划' }}
         </button>
       </view>
     </view>
@@ -176,7 +176,25 @@ const selectPlan = (plan) => {
   fetchPlanProjects(plan.id);
 };
 
-// 确认选择：先 PUT 计划绑定当前课堂，再进控制页
+// 确认选择：绑定课堂后进入大屏遥控（Web / 小程序统一）
+function goAfterPlanBound() {
+  const selectedPlan = planList.value.find((p) => p.id === selectedPlanId.value)
+  const q = [
+    `lessonId=${lessonId.value}`,
+    `planId=${selectedPlanId.value}`,
+    `planTitle=${encodeURIComponent((selectedPlan && selectedPlan.planTitle) || '')}`,
+    `lessonName=${encodeURIComponent(lessonName.value || '')}`,
+    `courseName=${encodeURIComponent(courseName.value || '')}`,
+  ].join('&')
+  uni.navigateTo({
+    url: `/pages/screen-control/screen-control?${q}`,
+    fail: (err) => {
+      console.error(err)
+      uni.showToast({ title: '跳转失败', icon: 'none' })
+    },
+  })
+}
+
 const confirmPlan = () => {
   if (!selectedPlanId.value) return;
 
@@ -195,20 +213,7 @@ const confirmPlan = () => {
           courseId: courseId.value || undefined,
         });
         uni.hideLoading();
-        const q = [
-          `lessonId=${lessonId.value}`,
-          `planId=${selectedPlanId.value}`,
-          `planTitle=${encodeURIComponent(selectedPlan.planTitle || '')}`,
-          `lessonName=${encodeURIComponent(lessonName.value || '')}`,
-          `courseName=${encodeURIComponent(courseName.value || '')}`,
-        ].join('&');
-        uni.navigateTo({
-          url: `/pages/screen-control/screen-control?${q}`,
-          fail: (err) => {
-            console.error(err);
-            uni.showToast({ title: '跳转失败', icon: 'none' });
-          },
-        });
+        goAfterPlanBound();
       } catch (err) {
         uni.hideLoading();
         console.error(err);

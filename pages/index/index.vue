@@ -3,7 +3,7 @@
     <view class="top-bg">
       <view class="circle-bg"></view>
       <view class="header-text-area">
-        <text class="app-name">羽球训练营 🏸</text>
+        <text class="app-name">羽毛球教学系统</text>
         <text class="welcome-text">{{ isRegister ? '加入我们，开启训练' : '欢迎回来，继续挥拍' }}</text>
       </view>
     </view>
@@ -103,6 +103,7 @@
 </template>
 
 <script setup>
+import { fetchAndStoreUserProfile } from '../../services/userProfile.js'
 import { reactive, ref } from 'vue';
 
 // --- 状态定义 ---
@@ -191,8 +192,6 @@ const handleSubmit = () => {
       username: formData.username,
       password: formData.password
     };
-    // 调试：打印登录账号密码
-    console.log('[登录调试] 账号:', formData.username, '密码:', formData.password);
   }
 
   uni.request({
@@ -210,16 +209,25 @@ const handleSubmit = () => {
       if (res.data.code === 0) {
         uni.showToast({ title: isRegister.value ? '注册成功' : '登录成功' });
 
-        if (res.data.data && res.data.data.accessToken) {
-             uni.setStorageSync('token', res.data.data.accessToken);
-             // 登录成功后获取用户信息
-             getUserInfo(res.data.data.accessToken);
+        const accessToken = res.data.data?.accessToken
+        if (accessToken) {
+          uni.setStorageSync('token', accessToken)
+          fetchAndStoreUserProfile(accessToken)
+            .then(() => {
+              setTimeout(() => {
+                uni.switchTab({ url: '/pages/home/home' })
+              }, 400)
+            })
+            .catch((err) => {
+              console.error(err)
+              uni.showToast({
+                title: err?.message || '获取用户信息失败',
+                icon: 'none',
+              })
+            })
+        } else if (!isRegister.value) {
+          uni.showToast({ title: '登录响应缺少令牌', icon: 'none' })
         }
-
-        setTimeout(() => {
-          // 登录成功跳转到首页（TabBar页面）
-          uni.switchTab({ url: '/pages/home/home' });
-        }, 1000);
 
       } else {
         uni.showToast({ title: res.data.msg || '操作失败', icon: 'none' });
@@ -242,14 +250,6 @@ const handleWechatLogin = () => {
   });
 };
 
-// 获取用户信息并保存到本地存储
-// TODO: 新接口的用户信息获取地址需要确认
-const getUserInfo = (token) => {
-  console.log('获取用户信息，token:', token);
-  // 暂时注释掉，等确认新接口后再启用
-  // const BASE_URL = "http://10.112.189.54:48080/admin-api/system/user";
-  // uni.request({ ... });
-};
 </script>
 
 <style lang="scss" scoped>

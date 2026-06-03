@@ -46,18 +46,24 @@
 						:class="{ dragging: draggingCatalogId === p.id }"
 						:data-id="p.id"
 						@touchstart="onCatalogTouchStart($event, p)"
-						@touchmove="onCatalogTouchMove"
+						@touchmove.stop.prevent="onCatalogTouchMove"
 						@touchend="onCatalogTouchEnd"
 						@touchcancel="onCatalogTouchCancel"
+						@mousedown="onCatalogMouseDown($event, p)"
 					>
 						<text class="lib-name">{{ p.name }}</text>
 						<text v-if="p.durationMin != null" class="lib-meta">{{ p.durationMin }} 分钟</text>
-						<view v-if="isCatalogItemEditable(p)" class="lib-edit-wrap" @click.stop>
-							<text class="lib-edit-btn" @click.stop="goEditProject(p)">编辑</text>
-							<text class="lib-delete-btn" @click.stop="confirmDeleteProject(p)">删除</text>
+						<view class="lib-edit-wrap" @click.stop @mousedown.stop @touchstart.stop>
+							<text
+								v-if="isCatalogItemDraggable(p)"
+								class="lib-add-btn"
+								@click.stop="onQuickAddToPlan(p)"
+							>加入计划</text>
+							<text v-if="isCatalogItemEditable(p)" class="lib-edit-btn" @click.stop="goEditProject(p)">编辑</text>
+							<text v-if="isCatalogItemEditable(p)" class="lib-delete-btn" @click.stop="confirmDeleteProject(p)">删除</text>
 						</view>
 					</view>
-					<text class="lib-hint">拖入或点在右侧计划区内：加入当前计划</text>
+					<text class="lib-hint">拖入右侧计划区，或点击「加入计划」</text>
 				</scroll-view>
 				<view class="new-block">
 					<text class="side-note-line only">新建项目</text>
@@ -108,7 +114,7 @@
 					<text class="modal-title">创建训练项目</text>
 					<text class="modal-close" @click="closeCreateProjectModal">×</text>
 				</view>
-				<scroll-view scroll-y class="modal-body">
+				<view class="modal-body">
 					<view class="form-row">
 						<text class="form-label">项目名称</text>
 						<input
@@ -127,14 +133,24 @@
 					</view>
 					<view class="form-row">
 						<text class="form-label">项目类型</text>
-						<picker mode="selector" :range="itemTypeLabels" @change="onItemTypePick">
-							<view class="form-picker">{{ itemTypeLabels[projectForm.itemType - 1] }}</view>
+						<picker
+							mode="selector"
+							:range="itemTypeLabels"
+							:value="projectForm.itemType - 1"
+							@change="onItemTypePick"
+						>
+							<view class="form-picker" @click.stop>{{ itemTypeLabels[projectForm.itemType - 1] }}</view>
 						</picker>
 					</view>
 					<view class="form-row">
 						<text class="form-label">难度</text>
-						<picker mode="selector" :range="difficultyLabels" @change="onDifficultyPick">
-							<view class="form-picker">{{ difficultyLabels[projectForm.difficulty - 1] }}</view>
+						<picker
+							mode="selector"
+							:range="difficultyLabels"
+							:value="projectForm.difficulty - 1"
+							@change="onDifficultyPick"
+						>
+							<view class="form-picker" @click.stop>{{ difficultyLabels[projectForm.difficulty - 1] }}</view>
 						</picker>
 					</view>
 					<view class="form-row">
@@ -167,9 +183,17 @@
 					<view class="form-divider">项目资料（必填）</view>
 					<view class="form-row">
 						<text class="form-label">资料类型</text>
-						<picker mode="selector" :range="materialTypeLabelsNew" @change="onMaterialTypeNewPick">
-							<view class="form-picker">{{ materialTypeLabelsNew[projectForm.materialTypeNew - 1] }}</view>
-						</picker>
+						<view class="type-segment">
+							<view
+								v-for="(label, idx) in materialTypeLabelsNew"
+								:key="idx"
+								class="type-segment-item"
+								:class="{ active: projectForm.materialTypeNew === idx + 1 }"
+								@click.stop="setMaterialTypeNew(idx + 1)"
+							>
+								{{ label }}
+							</view>
+						</view>
 					</view>
 					<view class="form-row">
 						<text class="form-label">资料文件</text>
@@ -193,7 +217,7 @@
 							placeholder="选填"
 						/>
 					</view>
-				</scroll-view>
+				</view>
 				<view class="modal-foot">
 					<button class="btn-cancel" @click="closeCreateProjectModal">取消</button>
 					<button class="btn-ok" @click="submitCreateProject">创建</button>
@@ -204,7 +228,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
 	fetchTrainingProjectCatalogForArrange,
@@ -438,6 +462,29 @@ function isCatalogItemEditable(p) {
 	return Number.isFinite(n) && n > 0
 }
 
+/** 判断项目是否可拖动 */
+function isCatalogItemDraggable(p) {
+	if (!p || p.id == null) return false
+	const s = String(p.id)
+	if (s.startsWith('tmp_') || s.startsWith('new_')) return false
+	return true
+}
+
+function getPointerXY(e) {
+	if (e.touches && e.touches.length) {
+		return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+	}
+	if (e.changedTouches && e.changedTouches.length) {
+		return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+	}
+	return { x: e.clientX, y: e.clientY }
+}
+
+async function onQuickAddToPlan(p) {
+	if (!isCatalogItemDraggable(p)) return
+	await attachCatalogItemToPlan(p)
+}
+
 function goEditProject(p) {
 	if (!isCatalogItemEditable(p)) return
 	const itemId = encodeURIComponent(String(p.id))
@@ -563,43 +610,88 @@ function isPointInPlanZone(clientX, clientY) {
 	})
 }
 
-function onCatalogTouchStart(e, p) {
+function startCatalogDrag(e, p) {
+	if (!isCatalogItemDraggable(p)) {
+		draggingCatalogId.value = null
+		return
+	}
 	draggingCatalogId.value = p.id
 	catalogMoved = false
-	const t = e.touches[0]
-	dragCatalogStart.value = { x: t.clientX, y: t.clientY }
+	const pt = getPointerXY(e)
+	dragCatalogStart.value = { x: pt.x, y: pt.y }
+}
+
+function onCatalogTouchStart(e, p) {
+	startCatalogDrag(e, p)
 }
 
 function onCatalogTouchMove(e) {
 	if (!draggingCatalogId.value) return
-	const t = e.touches[0]
-	const dx = t.clientX - dragCatalogStart.value.x
-	const dy = t.clientY - dragCatalogStart.value.y
+	const pt = getPointerXY(e)
+	const dx = pt.x - dragCatalogStart.value.x
+	const dy = pt.y - dragCatalogStart.value.y
 	if (Math.abs(dx) + Math.abs(dy) > 12) catalogMoved = true
 }
 
-async function onCatalogTouchEnd(e) {
+async function finishCatalogDrag(e) {
 	const id = draggingCatalogId.value
 	draggingCatalogId.value = null
 	if (!id) return
-	const t = e.changedTouches[0]
-	const inside = await isPointInPlanZone(t.clientX, t.clientY)
+	const pt = getPointerXY(e)
+	const inside = await isPointInPlanZone(pt.x, pt.y)
 	const item = catalogItems.value.find((x) => x.id === id)
 	if (!item) {
 		catalogMoved = false
 		return
 	}
-	// 仅拖入/释放在计划区内时关联，避免点「编辑」等触发的 tap 误调 associate-plan
 	if (inside) {
 		await attachCatalogItemToPlan(item)
 	}
 	catalogMoved = false
 }
 
+async function onCatalogTouchEnd(e) {
+	await finishCatalogDrag(e)
+}
+
 function onCatalogTouchCancel() {
 	draggingCatalogId.value = null
 	catalogMoved = false
 }
+
+let docMouseMoveHandler = null
+let docMouseUpHandler = null
+
+function cleanupDocMouseListeners() {
+	if (typeof document === 'undefined') return
+	if (docMouseMoveHandler) {
+		document.removeEventListener('mousemove', docMouseMoveHandler)
+		docMouseMoveHandler = null
+	}
+	if (docMouseUpHandler) {
+		document.removeEventListener('mouseup', docMouseUpHandler)
+		docMouseUpHandler = null
+	}
+}
+
+function onCatalogMouseDown(e, p) {
+	if (e.button !== 0) return
+	if (!isCatalogItemDraggable(p)) return
+	startCatalogDrag(e, p)
+	if (typeof document === 'undefined') return
+	cleanupDocMouseListeners()
+	docMouseMoveHandler = (ev) => onCatalogTouchMove(ev)
+	docMouseUpHandler = (ev) => {
+		finishCatalogDrag(ev)
+		cleanupDocMouseListeners()
+	}
+	document.addEventListener('mousemove', docMouseMoveHandler)
+	document.addEventListener('mouseup', docMouseUpHandler)
+}
+
+onUnmounted(() => {
+	cleanupDocMouseListeners()
+})
 
 function onPlanRowTouchStart(e, index) {
 	const row = planRows.value[index]
@@ -823,11 +915,16 @@ function mapCreatedToCatalogItem(created, fallbackName, duration) {
 	}
 }
 
+function setMaterialTypeNew(type) {
+	if (projectForm.value.materialTypeNew === type) return
+	projectForm.value.materialTypeNew = type
+	projectForm.value.materialTempPath = ''
+}
+
 function onMaterialTypeNewPick(e) {
 	const i = Number(e.detail.value)
 	if (!Number.isNaN(i)) {
-		projectForm.value.materialTypeNew = i + 1
-		projectForm.value.materialTempPath = ''
+		setMaterialTypeNew(i + 1)
 	}
 }
 
@@ -949,6 +1046,19 @@ async function submitCreateProject() {
 			matBody.duration = Number(uploadData.duration)
 		}
 		await createPlanMaterial(matBody)
+
+		const newCatalogItem = {
+			id: String(itemId),
+			name,
+			durationMin: duration,
+			hasMaterials: true,
+		}
+		const existIdx = catalogItems.value.findIndex((x) => String(x.id) === newCatalogItem.id)
+		if (existIdx >= 0) {
+			catalogItems.value[existIdx] = newCatalogItem
+		} else {
+			catalogItems.value.unshift(newCatalogItem)
+		}
 
 		closeCreateProjectModal()
 		await loadData()
@@ -1189,6 +1299,12 @@ onShow(async () => {
 	border-radius: 16rpx;
 	padding: 16rpx 14rpx;
 	margin-bottom: 12rpx;
+	cursor: grab;
+	user-select: none;
+}
+
+.lib-card.new {
+	cursor: pointer;
 }
 
 .lib-card.dragging {
@@ -1220,6 +1336,16 @@ onShow(async () => {
 	display: flex;
 	justify-content: flex-end;
 	gap: 12rpx;
+}
+
+.lib-add-btn {
+	font-size: 24rpx;
+	color: #07c160;
+	padding: 6rpx 16rpx;
+	border: 1rpx solid #95de64;
+	border-radius: 8rpx;
+	background: #f6ffed;
+	cursor: pointer;
 }
 
 .lib-edit-btn {
@@ -1429,6 +1555,33 @@ onShow(async () => {
 	max-height: 56vh;
 	padding: 24rpx;
 	box-sizing: border-box;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.type-segment {
+	display: flex;
+	gap: 16rpx;
+}
+
+.type-segment-item {
+	flex: 1;
+	height: 76rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #f5f7fa;
+	border-radius: 10rpx;
+	font-size: 28rpx;
+	color: #666;
+	border: 2rpx solid transparent;
+}
+
+.type-segment-item.active {
+	background: #e8f8ef;
+	color: #07c160;
+	border-color: #07c160;
+	font-weight: 600;
 }
 
 .form-row {
