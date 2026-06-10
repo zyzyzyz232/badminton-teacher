@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "class-select",
@@ -35,7 +43,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/class-select/class-select.vue:92", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/class-select/class-select.vue:93", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -58,10 +66,13 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(courseName),
-        b: classList.length > 0
+        a: common_vendor.p({
+          title: "选择班级"
+        }),
+        b: common_vendor.t(courseName),
+        c: classList.length > 0
       }, classList.length > 0 ? {
-        c: common_vendor.f(classList, (item, k0, i0) => {
+        d: common_vendor.f(classList, (item, k0, i0) => {
           return {
             a: common_vendor.t(item.className || "默认班级"),
             b: common_vendor.t(item.studentCount || 0),

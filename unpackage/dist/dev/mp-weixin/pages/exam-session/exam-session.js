@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "exam-session",
@@ -154,10 +162,13 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(headerSubtitle.value),
-        b: !optionsParsed.value
+        a: common_vendor.p({
+          title: "考核进行中"
+        }),
+        b: common_vendor.t(headerSubtitle.value),
+        c: !optionsParsed.value
       }, !optionsParsed.value ? {} : !classId.value ? {} : loading.value ? {} : studentList.value.length > 0 ? {
-        f: common_vendor.f(studentList.value, (s, k0, i0) => {
+        g: common_vendor.f(studentList.value, (s, k0, i0) => {
           return common_vendor.e({
             a: common_vendor.t(s.studentName || "未命名"),
             b: selectedClassStudentId.value === s.id
@@ -176,12 +187,12 @@ const _sfc_main = {
           });
         })
       } : {}, {
-        c: !classId.value,
-        d: loading.value,
-        e: studentList.value.length > 0,
-        g: common_vendor.t(selectedClassStudentId.value !== null ? "开始考核" : "请先选择一名学员"),
-        h: selectedClassStudentId.value === null ? 1 : "",
-        i: common_vendor.o(onStartExam, "29")
+        d: !classId.value,
+        e: loading.value,
+        f: studentList.value.length > 0,
+        h: common_vendor.t(selectedClassStudentId.value !== null ? "开始考核" : "请先选择一名学员"),
+        i: selectedClassStudentId.value === null ? 1 : "",
+        j: common_vendor.o(onStartExam, "82")
       });
     };
   }

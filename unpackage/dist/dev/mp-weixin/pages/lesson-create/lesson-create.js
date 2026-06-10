@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "lesson-create",
@@ -106,7 +114,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-create/lesson-create.vue:202", "创建失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-create/lesson-create.vue:203", "创建失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -127,29 +135,32 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return {
-        a: common_vendor.t(className.value),
-        b: common_vendor.t(weekIndex.value >= 0 ? common_vendor.unref(weekOptions)[weekIndex.value] : "请选择周次"),
-        c: weekIndex.value === -1 ? 1 : "",
-        d: common_vendor.unref(weekOptions),
-        e: weekIndex.value,
-        f: common_vendor.o(onWeekChange, "08"),
-        g: common_vendor.t(form.startTime || "请选择开始时间"),
-        h: !form.startTime ? 1 : "",
-        i: dateTimeRange,
-        j: startTimeValue.value,
-        k: common_vendor.o(onStartTimeChange, "08"),
-        l: common_vendor.o(onStartColumnChange, "8e"),
-        m: common_vendor.t(form.endTime || "请选择结束时间"),
-        n: !form.endTime ? 1 : "",
-        o: dateTimeRange,
-        p: endTimeValue.value,
-        q: common_vendor.o(onEndTimeChange, "47"),
-        r: common_vendor.o(onEndColumnChange, "ba"),
-        s: common_vendor.t(typeOptions[typeIndex.value]),
-        t: typeOptions,
-        v: typeIndex.value,
-        w: common_vendor.o(onTypeChange, "0b"),
-        x: common_vendor.o(createLesson, "43")
+        a: common_vendor.p({
+          title: "创建课堂"
+        }),
+        b: common_vendor.t(className.value),
+        c: common_vendor.t(weekIndex.value >= 0 ? common_vendor.unref(weekOptions)[weekIndex.value] : "请选择周次"),
+        d: weekIndex.value === -1 ? 1 : "",
+        e: common_vendor.unref(weekOptions),
+        f: weekIndex.value,
+        g: common_vendor.o(onWeekChange, "e2"),
+        h: common_vendor.t(form.startTime || "请选择开始时间"),
+        i: !form.startTime ? 1 : "",
+        j: dateTimeRange,
+        k: startTimeValue.value,
+        l: common_vendor.o(onStartTimeChange, "0d"),
+        m: common_vendor.o(onStartColumnChange, "cf"),
+        n: common_vendor.t(form.endTime || "请选择结束时间"),
+        o: !form.endTime ? 1 : "",
+        p: dateTimeRange,
+        q: endTimeValue.value,
+        r: common_vendor.o(onEndTimeChange, "bb"),
+        s: common_vendor.o(onEndColumnChange, "bb"),
+        t: common_vendor.t(typeOptions[typeIndex.value]),
+        v: typeOptions,
+        w: typeIndex.value,
+        x: common_vendor.o(onTypeChange, "c6"),
+        y: common_vendor.o(createLesson, "81")
       };
     };
   }

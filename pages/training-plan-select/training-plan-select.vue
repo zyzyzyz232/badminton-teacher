@@ -1,9 +1,9 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="选择训练计划" />
     <!-- 顶部区域 -->
     <view class="top-bg">
       <view class="info">
-        <text class="title">选择训练计划</text>
         <text class="subtitle">{{ courseName }} - {{ lessonName }}</text>
       </view>
     </view>
@@ -158,11 +158,12 @@ const goEditPlan = (plan) => {
   const q = [
     `planId=${encodeURIComponent(plan.id)}`,
     `lessonId=${encodeURIComponent(lessonId.value)}`,
+    `courseId=${encodeURIComponent(courseId.value || '')}`,
     `lessonName=${encodeURIComponent(lessonName.value || '')}`,
     `courseName=${encodeURIComponent(courseName.value || '')}`,
   ].join('&');
   uni.navigateTo({
-    url: `/pages/training-plan-arrange/training-plan-arrange?${q}`,
+    url: `/pages/training-plan-info/training-plan-info?${q}`,
     fail: (e) => {
       console.error(e);
       uni.showToast({ title: '跳转失败', icon: 'none' });
@@ -271,9 +272,10 @@ onShow(() => {
 
 /* 顶部区域 */
 .top-bg {
-  height: 220rpx;
+  min-height: 0;
+  height: auto;
   background: linear-gradient(135deg, #07c160, #0ebf8c);
-  padding: 40rpx;
+  padding: 16rpx 40rpx 28rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;

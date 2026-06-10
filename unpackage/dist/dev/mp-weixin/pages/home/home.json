@@ -2,5 +2,7 @@
   "navigationBarTitleText": "羽毛球教学",
   "navigationBarBackgroundColor": "#07c160",
   "navigationBarTextStyle": "white",
-  "usingComponents": {}
+  "usingComponents": {
+    "page-nav-bar": "../../components/page-nav-bar/page-nav-bar"
+  }
 }

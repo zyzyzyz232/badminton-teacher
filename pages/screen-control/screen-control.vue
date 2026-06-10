@@ -1,9 +1,10 @@
 <template>
   <view class="page">
+    <page-nav-bar title="大屏遥控" />
     <!-- 顶部状态栏 -->
     <view class="header-bar" :class="{ connected: socketJoined }">
       <view class="header-content">
-        <text class="header-title">{{ socketJoined ? '已连接大屏' : '大屏遥控' }}</text>
+        <text class="header-title">{{ socketJoined ? '已连接大屏' : '等待连接' }}</text>
         <view class="conn-badge" :class="phaseClass">{{ phaseLabel }}</view>
       </view>
       <text v-if="statusLine" class="status-text">{{ statusLine }}</text>
@@ -86,8 +87,8 @@
           <text class="ctrl-text">重置计时</text>
         </button>
         <button class="ctrl-btn aux" @click="toggleVideo">
-          <text class="ctrl-icon">🎬</text>
-          <text class="ctrl-text">视频开关</text>
+          <text class="ctrl-icon">{{ videoPlaying ? '⏸' : '▶' }}</text>
+          <text class="ctrl-text">{{ videoPlaying ? '视频暂停' : '视频继续' }}</text>
         </button>
       </view>
 
@@ -247,6 +248,7 @@ const planTitle = ref('')
 const loadingPlan = ref(false)
 const planIds = ref([])
 const currentIndex = ref(0)
+const videoPlaying = ref(false)
 const planCount = computed(() => planIds.value.length)
 
 const getToken = () => uni.getStorageSync('token') || ''
@@ -389,6 +391,11 @@ function onSocketMessageHandler(res) {
       }
       void pushSetPlan()
       return
+    }
+    if (msg.type === 'state' && msg.state) {
+      if (typeof msg.state.videoPlaying === 'boolean') {
+        videoPlaying.value = msg.state.videoPlaying
+      }
     }
     if (msg.type === 'state' && msg.state?.plan?.length) {
       planIds.value = msg.state.plan.map((p) => p.id)
@@ -551,7 +558,8 @@ function shiftItem(delta) {
 
 function toggleVideo() {
   sendCmd('toggleVideo')
-  pushLog('out', 'toggleVideo', '已发送 视频开/关（大屏 videoPlaying 将切换）')
+  videoPlaying.value = !videoPlaying.value
+  pushLog('out', 'toggleVideo', videoPlaying.value ? '视频继续播放' : '视频已暂停')
 }
 
 function endTraining() {
@@ -610,7 +618,7 @@ onUnmounted(() => {
 /* 顶部状态栏 */
 .header-bar {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40rpx 32rpx 32rpx;
+  padding: 16rpx 32rpx 24rpx;
   position: relative;
   
   &.connected {

@@ -1,5 +1,6 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="考核识别" />
     <view class="top-card">
       <view class="info-row">
         <text class="label">班级</text>

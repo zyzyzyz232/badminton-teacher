@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "me",
@@ -66,14 +74,14 @@ const _sfc_main = {
           if (res.data.code === 0 && res.data.data) {
             Object.assign(userInfo, res.data.data);
             common_vendor.index.setStorageSync("userInfo", res.data.data);
-            common_vendor.index.__f__("log", "at pages/me/me.vue:181", "用户信息已获取:", res.data.data);
+            common_vendor.index.__f__("log", "at pages/me/me.vue:182", "用户信息已获取:", res.data.data);
           } else {
-            common_vendor.index.__f__("error", "at pages/me/me.vue:183", "获取用户信息失败:", res);
+            common_vendor.index.__f__("error", "at pages/me/me.vue:184", "获取用户信息失败:", res);
             common_vendor.index.showToast({ title: res.data.msg || "获取信息失败", icon: "none" });
           }
         },
         fail: (err) => {
-          common_vendor.index.__f__("error", "at pages/me/me.vue:188", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/me/me.vue:189", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -99,26 +107,30 @@ const _sfc_main = {
     return (_ctx, _cache) => {
       var _a;
       return common_vendor.e({
-        a: userInfo.avatar
-      }, userInfo.avatar ? {
+        a: common_vendor.p({
+          title: "个人中心",
+          ["show-back"]: false
+        }),
         b: userInfo.avatar
+      }, userInfo.avatar ? {
+        c: userInfo.avatar
       } : {}, {
-        c: common_vendor.t(userInfo.nickname || "教师"),
-        d: common_vendor.t(userInfo.username || "--"),
-        e: common_vendor.t(userInfo.nickname || "--"),
-        f: common_vendor.t(sexText.value),
-        g: common_vendor.t(userInfo.mobile || "--"),
-        h: common_vendor.t(userInfo.email || "--"),
-        i: common_vendor.t(((_a = userInfo.dept) == null ? void 0 : _a.name) || "--"),
-        j: common_vendor.t(rolesText.value),
-        k: common_vendor.t(postsText.value),
-        l: common_vendor.o(showDevTip, "bb"),
-        m: common_vendor.t(userInfo.id || "--"),
-        n: common_vendor.t(userInfo.loginIp || "--"),
-        o: common_vendor.t(formatTime(userInfo.loginDate)),
-        p: common_vendor.t(formatTime(userInfo.createTime)),
-        q: common_vendor.o(showDevTip, "e5"),
-        r: common_vendor.o(handleLogout, "36")
+        d: common_vendor.t(userInfo.nickname || "教师"),
+        e: common_vendor.t(userInfo.username || "--"),
+        f: common_vendor.t(userInfo.nickname || "--"),
+        g: common_vendor.t(sexText.value),
+        h: common_vendor.t(userInfo.mobile || "--"),
+        i: common_vendor.t(userInfo.email || "--"),
+        j: common_vendor.t(((_a = userInfo.dept) == null ? void 0 : _a.name) || "--"),
+        k: common_vendor.t(rolesText.value),
+        l: common_vendor.t(postsText.value),
+        m: common_vendor.o(showDevTip, "45"),
+        n: common_vendor.t(userInfo.id || "--"),
+        o: common_vendor.t(userInfo.loginIp || "--"),
+        p: common_vendor.t(formatTime(userInfo.loginDate)),
+        q: common_vendor.t(formatTime(userInfo.createTime)),
+        r: common_vendor.o(showDevTip, "af"),
+        s: common_vendor.o(handleLogout, "c2")
       });
     };
   }

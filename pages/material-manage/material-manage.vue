@@ -1,14 +1,6 @@
 <template>
   <view class="container">
-    <!-- 顶部导航 -->
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-back" @click="goBack">
-        <text class="nav-back-icon">‹</text>
-        <text class="nav-back-text">返回</text>
-      </view>
-      <text class="nav-title">资料管理</text>
-      <view class="nav-placeholder" />
-    </view>
+    <page-nav-bar title="资料管理" fallback-url="/pages/training-plan/training-plan" />
 
     <!-- 项目信息 -->
     <view class="header">
@@ -169,7 +161,7 @@ try {
 }
 
 const listHeight = computed(() => {
-  const top = statusBarHeight.value + 44 + 120
+  const top = statusBarHeight.value + 44 + 16 + 100
   return `calc(100vh - ${top}px)`
 })
 
@@ -199,19 +191,6 @@ const authHeader = () => ({
   Authorization: `Bearer ${getToken()}`,
   'Tenant-Id': '1',
 })
-
-const goBack = () => {
-  const pages = getCurrentPages()
-  if (pages.length > 1) {
-    uni.navigateBack()
-    return
-  }
-  uni.navigateBack({
-    fail: () => {
-      uni.redirectTo({ url: '/pages/training-plan/training-plan' })
-    },
-  })
-}
 
 // 获取资料列表
 const fetchMaterialList = async () => {
@@ -454,44 +433,6 @@ onLoad((options) => {
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
-}
-
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 44px;
-  padding: 0 24rpx 16rpx;
-  background: linear-gradient(135deg, #07c160, #0ebf8c);
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.nav-back {
-  display: flex;
-  align-items: center;
-  min-width: 120rpx;
-  padding: 8rpx 0;
-}
-
-.nav-back-icon {
-  font-size: 44rpx;
-  line-height: 1;
-  margin-right: 4rpx;
-  font-weight: 300;
-}
-
-.nav-back-text {
-  font-size: 28rpx;
-}
-
-.nav-title {
-  font-size: 32rpx;
-  font-weight: 600;
-}
-
-.nav-placeholder {
-  min-width: 120rpx;
 }
 
 .header {

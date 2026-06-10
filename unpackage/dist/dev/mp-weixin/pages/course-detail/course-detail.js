@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "course-detail",
@@ -121,7 +129,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/course-detail/course-detail.vue:221", "删除失败:", err);
+          common_vendor.index.__f__("error", "at pages/course-detail/course-detail.vue:222", "删除失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -139,16 +147,19 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return {
-        a: common_vendor.t(course.name),
-        b: common_vendor.t(course.courseClass || "未设置班级"),
-        c: common_vendor.t(course.semester || "--"),
-        d: common_vendor.t(course.courseTime || "--"),
-        e: common_vendor.t(course.teacherName || "--"),
-        f: common_vendor.t(course.description || "暂无简介"),
-        g: common_vendor.t(classCount.value),
-        h: common_vendor.t(lessonCount.value),
-        i: common_vendor.o(goToLessonList, "d6"),
-        j: common_vendor.o(showDeleteConfirm, "95")
+        a: common_vendor.p({
+          title: "课程详情"
+        }),
+        b: common_vendor.t(course.name),
+        c: common_vendor.t(course.courseClass || "未设置班级"),
+        d: common_vendor.t(course.semester || "--"),
+        e: common_vendor.t(course.courseTime || "--"),
+        f: common_vendor.t(course.teacherName || "--"),
+        g: common_vendor.t(course.description || "暂无简介"),
+        h: common_vendor.t(classCount.value),
+        i: common_vendor.t(lessonCount.value),
+        j: common_vendor.o(goToLessonList, "7e"),
+        k: common_vendor.o(showDeleteConfirm, "76")
       };
     };
   }

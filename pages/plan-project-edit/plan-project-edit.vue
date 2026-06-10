@@ -1,5 +1,6 @@
 <template>
 	<view class="page">
+		<page-nav-bar title="编辑训练项目" />
 		<view v-if="loading" class="hint">加载中…</view>
 		<view v-else class="form-card">
 			<view class="form-row">
@@ -62,6 +63,7 @@ import {
 
 const itemId = ref(0)
 const planIdFromQuery = ref(0)
+const planTitleFromQuery = ref('')
 const loading = ref(true)
 const saving = ref(false)
 const deleting = ref(false)
@@ -194,7 +196,7 @@ function goMaterial() {
 		`planId=${pid}`,
 		`itemId=${form.id}`,
 		`projectName=${encodeURIComponent(form.itemName || '')}`,
-		`planTitle=${encodeURIComponent('训练计划')}`,
+		`planTitle=${encodeURIComponent((planTitleFromQuery.value || '').trim() || '训练计划')}`,
 	].join('&')
 	uni.navigateTo({ url: `/pages/material-manage/material-manage?${q}` })
 }
@@ -212,6 +214,11 @@ onLoad(async (opt) => {
 	if (Number.isFinite(qPlan) && qPlan > 0) {
 		planIdFromQuery.value = qPlan
 		form.planId = qPlan
+	}
+	try {
+		planTitleFromQuery.value = opt && opt.planTitle ? decodeURIComponent(opt.planTitle) : ''
+	} catch {
+		planTitleFromQuery.value = (opt && opt.planTitle) || ''
 	}
 	const fallbackName = opt && opt.itemName ? decodeURIComponent(opt.itemName) : ''
 	try {

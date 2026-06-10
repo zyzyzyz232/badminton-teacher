@@ -5,38 +5,6 @@
   display: flex;
   flex-direction: column;
 }
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 44px;
-  padding: 0 24rpx 16rpx;
-  background: linear-gradient(135deg, #07c160, #0ebf8c);
-  color: #fff;
-  flex-shrink: 0;
-}
-.nav-back {
-  display: flex;
-  align-items: center;
-  min-width: 120rpx;
-  padding: 8rpx 0;
-}
-.nav-back-icon {
-  font-size: 44rpx;
-  line-height: 1;
-  margin-right: 4rpx;
-  font-weight: 300;
-}
-.nav-back-text {
-  font-size: 28rpx;
-}
-.nav-title {
-  font-size: 32rpx;
-  font-weight: 600;
-}
-.nav-placeholder {
-  min-width: 120rpx;
-}
 .header {
   background: linear-gradient(135deg, #07c160, #0ebf8c);
   padding: 0 40rpx 32rpx;

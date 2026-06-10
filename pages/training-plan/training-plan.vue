@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
+		<page-nav-bar title="训练计划" :show-back="false" />
 		<view class="header-bar">
-			<text class="title">训练计划</text>
 			<text class="sub">管理训练计划与课中项目顺序</text>
 		</view>
 
@@ -57,7 +57,7 @@ async function refresh() {
 
 function openArrange(planId) {
 	uni.navigateTo({
-		url: `/pages/training-plan-arrange/training-plan-arrange?planId=${encodeURIComponent(planId)}`,
+		url: `/pages/training-plan-info/training-plan-info?planId=${encodeURIComponent(planId)}`,
 	})
 }
 
@@ -88,7 +88,7 @@ function confirmDeletePlan(plan) {
 
 function openNewArrange() {
 	uni.navigateTo({
-		url: '/pages/training-plan-arrange/training-plan-arrange?mode=new',
+		url: '/pages/training-plan-info/training-plan-info?mode=new',
 	})
 }
 
@@ -110,7 +110,7 @@ onShow(() => {
 
 .header-bar {
 	background: linear-gradient(135deg, #07c160, #0ebf8c);
-	padding: 36rpx 32rpx 48rpx;
+	padding: 8rpx 32rpx 32rpx;
 	color: #fff;
 }
 

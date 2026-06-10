@@ -2,6 +2,14 @@
 const common_vendor = require("../../common/vendor.js");
 const utils_platform = require("../../utils/platform.js");
 const utils_relayConfig = require("../../utils/relayConfig.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "screen-control",
@@ -55,7 +63,7 @@ const _sfc_main = {
       if (debugLogs.value.length > 80)
         debugLogs.value.shift();
       logScrollTop.value = debugLogs.value.length * 999;
-      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:188", `[screen-control][${tag}]`, msg, detail ?? "");
+      common_vendor.index.__f__("log", "at pages/screen-control/screen-control.vue:189", `[screen-control][${tag}]`, msg, detail ?? "");
     }
     function clearDebugLogs() {
       debugLogs.value = [];
@@ -103,6 +111,7 @@ const _sfc_main = {
     const loadingPlan = common_vendor.ref(false);
     const planIds = common_vendor.ref([]);
     const currentIndex = common_vendor.ref(0);
+    const videoPlaying = common_vendor.ref(false);
     const planCount = common_vendor.computed(() => planIds.value.length);
     const getToken = () => common_vendor.index.getStorageSync("token") || "";
     function buildUrlWithQuery(url, query) {
@@ -211,7 +220,7 @@ const _sfc_main = {
       } catch (e) {
         statusLine.value = "发送失败";
         pushLog("error", "SEND", "发送失败", (e == null ? void 0 : e.message) || String(e));
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:363", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:365", e);
       }
     }
     function sendPingState() {
@@ -238,6 +247,11 @@ const _sfc_main = {
           }
           void pushSetPlan();
           return;
+        }
+        if (msg.type === "state" && msg.state) {
+          if (typeof msg.state.videoPlaying === "boolean") {
+            videoPlaying.value = msg.state.videoPlaying;
+          }
         }
         if (msg.type === "state" && ((_b = (_a = msg.state) == null ? void 0 : _a.plan) == null ? void 0 : _b.length)) {
           planIds.value = msg.state.plan.map((p) => p.id);
@@ -344,7 +358,7 @@ const _sfc_main = {
           socketOpen.value = false;
           statusLine.value = "无法发起连接";
           pushLog("error", "CONNECT", "无法发起连接", (err == null ? void 0 : err.errMsg) || err);
-          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:501", err);
+          common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:508", err);
         }
       });
     }
@@ -380,7 +394,7 @@ const _sfc_main = {
         });
         common_vendor.index.showToast({ title: "计划已下发", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:538", e);
+        common_vendor.index.__f__("error", "at pages/screen-control/screen-control.vue:545", e);
         common_vendor.index.showToast({ title: e.message || "加载计划失败", icon: "none" });
       } finally {
         loadingPlan.value = false;
@@ -395,7 +409,8 @@ const _sfc_main = {
     }
     function toggleVideo() {
       sendCmd("toggleVideo");
-      pushLog("out", "toggleVideo", "已发送 视频开/关（大屏 videoPlaying 将切换）");
+      videoPlaying.value = !videoPlaying.value;
+      pushLog("out", "toggleVideo", videoPlaying.value ? "视频继续播放" : "视频已暂停");
     }
     function endTraining() {
       sendCmd("pause");
@@ -441,50 +456,55 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(socketJoined.value ? "已连接大屏" : "大屏遥控"),
-        b: common_vendor.t(phaseLabel.value),
-        c: common_vendor.n(phaseClass.value),
-        d: statusLine.value
+        a: common_vendor.p({
+          title: "大屏遥控"
+        }),
+        b: common_vendor.t(socketJoined.value ? "已连接大屏" : "等待连接"),
+        c: common_vendor.t(phaseLabel.value),
+        d: common_vendor.n(phaseClass.value),
+        e: statusLine.value
       }, statusLine.value ? {
-        e: common_vendor.t(statusLine.value)
+        f: common_vendor.t(statusLine.value)
       } : {}, {
-        f: socketJoined.value ? 1 : "",
-        g: !socketJoined.value
+        g: socketJoined.value ? 1 : "",
+        h: !socketJoined.value
       }, !socketJoined.value ? {
-        h: common_vendor.t(connecting.value ? "连接中…" : "连接大屏"),
-        i: connecting.value,
-        j: common_vendor.o(handleConnect, "71")
+        i: common_vendor.t(connecting.value ? "连接中…" : "连接大屏"),
+        j: connecting.value,
+        k: common_vendor.o(handleConnect, "5a")
       } : {}, {
-        k: socketJoined.value
+        l: socketJoined.value
       }, socketJoined.value ? {
-        l: common_vendor.t(planTitle.value || "训练计划"),
-        m: common_vendor.t(planCount.value),
-        n: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
-        o: loadingPlan.value,
-        p: common_vendor.o(pushSetPlan, "11")
+        m: common_vendor.t(planTitle.value || "训练计划"),
+        n: common_vendor.t(planCount.value),
+        o: common_vendor.t(loadingPlan.value ? "加载中…" : "重新下发计划"),
+        p: loadingPlan.value,
+        q: common_vendor.o(pushSetPlan, "d7")
       } : {}, {
-        q: socketJoined.value && planIds.value.length
+        r: socketJoined.value && planIds.value.length
       }, socketJoined.value && planIds.value.length ? {
-        r: common_vendor.t(currentIndex.value + 1),
-        s: common_vendor.t(planCount.value),
-        t: common_vendor.o(($event) => sendCmd("resume"), "a5"),
-        v: common_vendor.o(($event) => sendCmd("pause"), "be"),
-        w: currentIndex.value <= 0,
-        x: common_vendor.o(($event) => shiftItem(-1), "2c"),
-        y: currentIndex.value >= planIds.value.length - 1,
-        z: common_vendor.o(($event) => shiftItem(1), "5e"),
-        A: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "38"),
-        B: common_vendor.o(toggleVideo, "3c"),
-        C: common_vendor.o(endTraining, "7c")
+        s: common_vendor.t(currentIndex.value + 1),
+        t: common_vendor.t(planCount.value),
+        v: common_vendor.o(($event) => sendCmd("resume"), "6d"),
+        w: common_vendor.o(($event) => sendCmd("pause"), "6f"),
+        x: currentIndex.value <= 0,
+        y: common_vendor.o(($event) => shiftItem(-1), "79"),
+        z: currentIndex.value >= planIds.value.length - 1,
+        A: common_vendor.o(($event) => shiftItem(1), "92"),
+        B: common_vendor.o(($event) => sendCmd("resetBlockTimer"), "f0"),
+        C: common_vendor.t(videoPlaying.value ? "⏸" : "▶"),
+        D: common_vendor.t(videoPlaying.value ? "视频暂停" : "视频继续"),
+        E: common_vendor.o(toggleVideo, "c0"),
+        F: common_vendor.o(endTraining, "71")
       } : {}, {
-        D: common_vendor.t(showDebug.value ? "收起 ▲" : "展开 ▼"),
-        E: common_vendor.o(($event) => showDebug.value = !showDebug.value, "a8"),
-        F: showDebug.value
+        G: common_vendor.t(showDebug.value ? "收起 ▲" : "展开 ▼"),
+        H: common_vendor.o(($event) => showDebug.value = !showDebug.value, "e0"),
+        I: showDebug.value
       }, showDebug.value ? common_vendor.e({
-        G: common_vendor.o(clearDebugLogs, "87"),
-        H: !socketJoined.value,
-        I: common_vendor.o(sendPingState, "47"),
-        J: common_vendor.f(debugLogs.value, (row, i, i0) => {
+        J: common_vendor.o(clearDebugLogs, "0c"),
+        K: !socketJoined.value,
+        L: common_vendor.o(sendPingState, "21"),
+        M: common_vendor.f(debugLogs.value, (row, i, i0) => {
           return {
             a: common_vendor.t(row.time),
             b: common_vendor.t(row.tag),
@@ -493,9 +513,9 @@ const _sfc_main = {
             e: common_vendor.n("log-" + row.level)
           };
         }),
-        K: !debugLogs.value.length
+        N: !debugLogs.value.length
       }, !debugLogs.value.length ? {} : {}, {
-        L: logScrollTop.value
+        O: logScrollTop.value
       }) : {});
     };
   }

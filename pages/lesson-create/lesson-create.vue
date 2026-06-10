@@ -1,5 +1,6 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="创建课堂" />
     <!-- 顶部区域 -->
     <view class="top-bg">
       <view class="class-info">

@@ -13,8 +13,11 @@ app.$mount()
 
 // #ifdef VUE3
 import { createSSRApp } from 'vue'
+import PageNavBar from './components/page-nav-bar/page-nav-bar.vue'
+
 export function createApp() {
   const app = createSSRApp(App)
+  app.component('PageNavBar', PageNavBar)
   return {
     app
   }

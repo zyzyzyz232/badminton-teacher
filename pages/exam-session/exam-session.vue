@@ -1,8 +1,8 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="考核进行中" />
     <view class="top-bg">
       <view class="info">
-        <text class="title">选择学员</text>
         <text class="subtitle">{{ headerSubtitle }}</text>
       </view>
     </view>
@@ -233,9 +233,10 @@ onLoad((options) => {
 }
 
 .top-bg {
-  height: 240rpx;
+  min-height: 0;
+  height: auto;
   background: linear-gradient(135deg, #07c160, #0ebf8c);
-  padding: 40rpx 30rpx;
+  padding: 16rpx 30rpx 28rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;

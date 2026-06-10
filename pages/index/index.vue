@@ -1,5 +1,6 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="登录注册" :show-back="false" />
     <view class="top-bg">
       <view class="circle-bg"></view>
       <view class="header-text-area">

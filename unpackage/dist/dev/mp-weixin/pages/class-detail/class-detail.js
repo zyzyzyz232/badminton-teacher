@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "class-detail",
@@ -67,10 +75,13 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return {
-        a: common_vendor.t(className.value),
-        b: common_vendor.o(goToLessonList, "cc"),
-        c: common_vendor.o(goToExamSetup, "f6"),
-        d: common_vendor.t(studentCount.value)
+        a: common_vendor.p({
+          title: "班级详情"
+        }),
+        b: common_vendor.t(className.value),
+        c: common_vendor.o(goToLessonList, "08"),
+        d: common_vendor.o(goToExamSetup, "95"),
+        e: common_vendor.t(studentCount.value)
       };
     };
   }

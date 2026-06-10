@@ -17,6 +17,8 @@ if (!Math) {
   "./pages/training-plan-select/training-plan-select.js";
   "./pages/screen-control/screen-control.js";
   "./pages/training-plan/training-plan.js";
+  "./pages/training-plan-info/training-plan-info.js";
+  "./pages/training-plan-projects/training-plan-projects.js";
   "./pages/training-plan-arrange/training-plan-arrange.js";
   "./pages/plan-project-edit/plan-project-edit.js";
   "./pages/material-manage/material-manage.js";
@@ -32,8 +34,10 @@ const _sfc_main = {
     common_vendor.index.__f__("log", "at App.vue:26", "App Hide");
   }
 };
+const PageNavBar = () => "./components/page-nav-bar/page-nav-bar.js";
 function createApp() {
   const app = common_vendor.createSSRApp(_sfc_main);
+  app.component("PageNavBar", PageNavBar);
   return {
     app
   };

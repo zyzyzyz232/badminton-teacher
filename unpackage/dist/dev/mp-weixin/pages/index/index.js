@@ -1,6 +1,14 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const services_userProfile = require("../../services/userProfile.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const _sfc_main = {
   __name: "index",
   setup(__props) {
@@ -88,7 +96,7 @@ const _sfc_main = {
         success: (res) => {
           var _a;
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("log", "at pages/index/index.vue:207", "后端返回:", res.data);
+          common_vendor.index.__f__("log", "at pages/index/index.vue:208", "后端返回:", res.data);
           if (res.data.code === 0) {
             common_vendor.index.showToast({ title: isRegister.value ? "注册成功" : "登录成功" });
             const accessToken = (_a = res.data.data) == null ? void 0 : _a.accessToken;
@@ -99,7 +107,7 @@ const _sfc_main = {
                   common_vendor.index.switchTab({ url: "/pages/home/home" });
                 }, 400);
               }).catch((err) => {
-                common_vendor.index.__f__("error", "at pages/index/index.vue:222", err);
+                common_vendor.index.__f__("error", "at pages/index/index.vue:223", err);
                 common_vendor.index.showToast({
                   title: (err == null ? void 0 : err.message) || "获取用户信息失败",
                   icon: "none"
@@ -114,7 +122,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/index/index.vue:238", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/index/index.vue:239", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -129,33 +137,37 @@ const _sfc_main = {
     };
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(isRegister.value ? "加入我们，开启训练" : "欢迎回来，继续挥拍"),
-        b: common_vendor.t(isRegister.value ? "注册账号" : "账号登录"),
-        c: isRegister.value
+        a: common_vendor.p({
+          title: "登录注册",
+          ["show-back"]: false
+        }),
+        b: common_vendor.t(isRegister.value ? "加入我们，开启训练" : "欢迎回来，继续挥拍"),
+        c: common_vendor.t(isRegister.value ? "注册账号" : "账号登录"),
+        d: isRegister.value
       }, isRegister.value ? {
-        d: formData.nickname,
-        e: common_vendor.o(($event) => formData.nickname = $event.detail.value, "4a")
+        e: formData.nickname,
+        f: common_vendor.o(($event) => formData.nickname = $event.detail.value, "e5")
       } : {}, {
-        f: isRegister.value
+        g: isRegister.value
       }, isRegister.value ? {
-        g: formData.mobile,
-        h: common_vendor.o(($event) => formData.mobile = $event.detail.value, "4a")
+        h: formData.mobile,
+        i: common_vendor.o(($event) => formData.mobile = $event.detail.value, "b7")
       } : {}, {
-        i: formData.username,
-        j: common_vendor.o(($event) => formData.username = $event.detail.value, "6f"),
-        k: "password-" + formKey.value,
-        l: common_vendor.o(handlePasswordInput, "01"),
-        m: isRegister.value
+        j: formData.username,
+        k: common_vendor.o(($event) => formData.username = $event.detail.value, "5b"),
+        l: "password-" + formKey.value,
+        m: common_vendor.o(handlePasswordInput, "6a"),
+        n: isRegister.value
       }, isRegister.value ? {
-        n: "confirm-" + formKey.value,
-        o: common_vendor.o(handleConfirmPasswordInput, "61")
+        o: "confirm-" + formKey.value,
+        p: common_vendor.o(handleConfirmPasswordInput, "2f")
       } : {}, {
-        p: common_vendor.t(isRegister.value ? "立即注册" : "登 录"),
-        q: common_vendor.o(handleSubmit, "26"),
-        r: common_vendor.t(isRegister.value ? "已有账号？" : "还没有账号？"),
-        s: common_vendor.t(isRegister.value ? "去登录" : "立即注册"),
-        t: common_vendor.o(toggleMode, "7a"),
-        v: common_vendor.o(handleWechatLogin, "33")
+        q: common_vendor.t(isRegister.value ? "立即注册" : "登 录"),
+        r: common_vendor.o(handleSubmit, "fa"),
+        s: common_vendor.t(isRegister.value ? "已有账号？" : "还没有账号？"),
+        t: common_vendor.t(isRegister.value ? "去登录" : "立即注册"),
+        v: common_vendor.o(toggleMode, "a8"),
+        w: common_vendor.o(handleWechatLogin, "e5")
       });
     };
   }

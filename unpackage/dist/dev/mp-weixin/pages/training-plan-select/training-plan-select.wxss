@@ -30,9 +30,10 @@
 
 /* 顶部区域 */
 .top-bg.data-v-06194000 {
-  height: 220rpx;
+  min-height: 0;
+  height: auto;
   background: linear-gradient(135deg, #07c160, #0ebf8c);
-  padding: 40rpx;
+  padding: 16rpx 40rpx 28rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;

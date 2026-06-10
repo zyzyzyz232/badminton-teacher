@@ -15,6 +15,8 @@
     "pages/training-plan-select/training-plan-select",
     "pages/screen-control/screen-control",
     "pages/training-plan/training-plan",
+    "pages/training-plan-info/training-plan-info",
+    "pages/training-plan-projects/training-plan-projects",
     "pages/training-plan-arrange/training-plan-arrange",
     "pages/plan-project-edit/plan-project-edit",
     "pages/material-manage/material-manage"
@@ -58,5 +60,7 @@
       }
     ]
   },
-  "usingComponents": {}
+  "usingComponents": {
+    "page-nav-bar": "/components/page-nav-bar/page-nav-bar"
+  }
 }

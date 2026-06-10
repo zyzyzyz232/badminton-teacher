@@ -1,5 +1,6 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="个人中心" :show-back="false" />
     <view class="top-bg">
       <view class="user-header">
         <view class="avatar-box">

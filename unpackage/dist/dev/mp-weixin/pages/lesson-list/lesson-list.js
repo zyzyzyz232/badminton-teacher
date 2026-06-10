@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "lesson-list",
@@ -39,7 +47,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:128", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:129", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -91,7 +99,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:188", "删除失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:189", "删除失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -175,16 +183,19 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(className.value),
-        b: common_vendor.t(forExam.value ? "选择课堂进行考试" : "课堂列表"),
-        c: common_vendor.t(forExam.value ? "选择课堂" : "课堂列表"),
-        d: !forExam.value
+        a: common_vendor.p({
+          title: "课堂列表"
+        }),
+        b: common_vendor.t(className.value),
+        c: common_vendor.t(forExam.value ? "选择课堂进行考试" : "课堂列表"),
+        d: common_vendor.t(forExam.value ? "选择课堂" : "课堂列表"),
+        e: !forExam.value
       }, !forExam.value ? {
-        e: common_vendor.o(goToCreateLesson, "a6")
+        f: common_vendor.o(goToCreateLesson, "73")
       } : {}, {
-        f: lessonList.value.length > 0
+        g: lessonList.value.length > 0
       }, lessonList.value.length > 0 ? {
-        g: common_vendor.f(lessonList.value, (item, idx, i0) => {
+        h: common_vendor.f(lessonList.value, (item, idx, i0) => {
           return common_vendor.e({
             a: common_vendor.t(item.weekIndex),
             b: common_vendor.t(item.typeText || "普通课堂"),
@@ -201,8 +212,8 @@ const _sfc_main = {
             k: resolveLessonRowId(item) || "lesson-" + idx
           });
         }),
-        h: !forExam.value,
-        i: common_vendor.t(forExam.value ? "考试设置" : "进入课堂")
+        i: !forExam.value,
+        j: common_vendor.t(forExam.value ? "考试设置" : "进入课堂")
       } : {});
     };
   }

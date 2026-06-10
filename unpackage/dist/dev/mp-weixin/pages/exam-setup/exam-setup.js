@@ -1,5 +1,13 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const _sfc_main = {
   __name: "exam-setup",
   setup(__props) {
@@ -119,12 +127,15 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return {
-        a: common_vendor.t(headerLine.value),
-        b: common_vendor.t(venueDisplayLine.value),
-        c: venueList.value,
-        d: venuePickerIndex.value,
-        e: common_vendor.o(onVenueChange, "93"),
-        f: common_vendor.f(examTypes, (t, k0, i0) => {
+        a: common_vendor.p({
+          title: "考核选项"
+        }),
+        b: common_vendor.t(headerLine.value),
+        c: common_vendor.t(venueDisplayLine.value),
+        d: venueList.value,
+        e: venuePickerIndex.value,
+        f: common_vendor.o(onVenueChange, "24"),
+        g: common_vendor.f(examTypes, (t, k0, i0) => {
           return {
             a: common_vendor.t(t.title),
             b: common_vendor.t(t.desc),
@@ -133,9 +144,9 @@ const _sfc_main = {
             e: common_vendor.o(($event) => selectedExamType.value = t.id, t.id)
           };
         }),
-        g: common_vendor.t(confirmBtnLabel.value),
-        h: !canStart.value ? 1 : "",
-        i: common_vendor.o(goToExamSession, "d5")
+        h: common_vendor.t(confirmBtnLabel.value),
+        i: !canStart.value ? 1 : "",
+        j: common_vendor.o(goToExamSession, "4a")
       };
     };
   }

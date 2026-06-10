@@ -1,5 +1,6 @@
 <template>
   <view class="page-container">
+    <page-nav-bar title="班级详情" />
     <!-- 顶部班级信息 -->
     <view class="top-bg">
       <view class="class-info">

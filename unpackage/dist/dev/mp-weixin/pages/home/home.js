@@ -2,6 +2,14 @@
 const common_vendor = require("../../common/vendor.js");
 const services_userProfile = require("../../services/userProfile.js");
 const services_trainingPlanApi = require("../../services/trainingPlanApi.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "home",
@@ -75,7 +83,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/home/home.vue:163", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/home/home.vue:164", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -96,7 +104,7 @@ const _sfc_main = {
         const { teacherId, token } = await services_userProfile.ensureTeacherSession();
         getClassList(teacherId, token);
       } catch (err) {
-        common_vendor.index.__f__("error", "at pages/home/home.vue:189", err);
+        common_vendor.index.__f__("error", "at pages/home/home.vue:190", err);
         common_vendor.index.showToast({ title: (err == null ? void 0 : err.message) || "请先登录", icon: "none" });
       }
     };
@@ -105,11 +113,15 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(teacherName.value),
-        b: common_vendor.t(totalClasses.value),
-        c: courseGroups.length > 0
+        a: common_vendor.p({
+          title: "羽毛球教学",
+          ["show-back"]: false
+        }),
+        b: common_vendor.t(teacherName.value),
+        c: common_vendor.t(totalClasses.value),
+        d: courseGroups.length > 0
       }, courseGroups.length > 0 ? {
-        d: common_vendor.f(courseGroups, (course, k0, i0) => {
+        e: common_vendor.f(courseGroups, (course, k0, i0) => {
           return {
             a: common_vendor.t(course.courseName),
             b: common_vendor.t(course.courseClass),
@@ -127,7 +139,7 @@ const _sfc_main = {
           };
         })
       } : {
-        e: common_vendor.o(goToMyCourses, "4f")
+        f: common_vendor.o(goToMyCourses, "62")
       });
     };
   }

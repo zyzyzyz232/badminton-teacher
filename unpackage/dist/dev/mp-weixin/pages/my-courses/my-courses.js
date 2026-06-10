@@ -2,6 +2,14 @@
 const common_vendor = require("../../common/vendor.js");
 const services_userProfile = require("../../services/userProfile.js");
 const services_trainingPlanApi = require("../../services/trainingPlanApi.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
 const _sfc_main = {
   __name: "my-courses",
@@ -103,7 +111,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:240", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:237", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -188,7 +196,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:343", "创建失败:", err);
+          common_vendor.index.__f__("error", "at pages/my-courses/my-courses.vue:340", "创建失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -203,9 +211,13 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: courseList.length > 0
+        a: common_vendor.p({
+          title: "我的课程",
+          ["show-back"]: false
+        }),
+        b: courseList.length > 0
       }, courseList.length > 0 ? {
-        b: common_vendor.f(courseList, (item, k0, i0) => {
+        c: common_vendor.f(courseList, (item, k0, i0) => {
           return {
             a: common_vendor.t(item.name),
             b: common_vendor.t(item.classCount || 0),
@@ -215,33 +227,33 @@ const _sfc_main = {
           };
         })
       } : {}, {
-        c: common_vendor.o(showCreateModal, "bb"),
-        d: showModal.value
+        d: common_vendor.o(showCreateModal, "10"),
+        e: showModal.value
       }, showModal.value ? {
-        e: common_vendor.o(closeModal, "d7"),
-        f: form.name,
-        g: common_vendor.o(($event) => form.name = $event.detail.value, "0b"),
-        h: form.courseClass,
-        i: common_vendor.o(($event) => form.courseClass = $event.detail.value, "78"),
-        j: common_vendor.t(form.semester || "请选择学期"),
-        k: !form.semester ? 1 : "",
-        l: semesterOptions,
-        m: common_vendor.o(onSemesterChange, "62"),
-        n: common_vendor.t(form.startTime ? formatTimeDisplay(startTimeIndex.value) : "请选择开始时间"),
-        o: !form.startTime ? 1 : "",
-        p: timeRange,
-        q: startTimeIndex.value,
-        r: common_vendor.o(onStartTimeChange, "38"),
-        s: common_vendor.t(form.endTime ? formatTimeDisplay(endTimeIndex.value) : "请选择结束时间"),
-        t: !form.endTime ? 1 : "",
-        v: timeRange,
-        w: endTimeIndex.value,
-        x: common_vendor.o(onEndTimeChange, "3f"),
-        y: common_vendor.o(closeModal, "1e"),
-        z: common_vendor.o(createCourse, "90"),
-        A: common_vendor.o(() => {
-        }, "0d"),
-        B: common_vendor.o(closeModal, "6e")
+        f: common_vendor.o(closeModal, "e8"),
+        g: form.name,
+        h: common_vendor.o(($event) => form.name = $event.detail.value, "9e"),
+        i: form.courseClass,
+        j: common_vendor.o(($event) => form.courseClass = $event.detail.value, "9f"),
+        k: common_vendor.t(form.semester || "请选择学期"),
+        l: !form.semester ? 1 : "",
+        m: semesterOptions,
+        n: common_vendor.o(onSemesterChange, "81"),
+        o: common_vendor.t(form.startTime ? formatTimeDisplay(startTimeIndex.value) : "请选择开始时间"),
+        p: !form.startTime ? 1 : "",
+        q: timeRange,
+        r: startTimeIndex.value,
+        s: common_vendor.o(onStartTimeChange, "35"),
+        t: common_vendor.t(form.endTime ? formatTimeDisplay(endTimeIndex.value) : "请选择结束时间"),
+        v: !form.endTime ? 1 : "",
+        w: timeRange,
+        x: endTimeIndex.value,
+        y: common_vendor.o(onEndTimeChange, "f5"),
+        z: common_vendor.o(closeModal, "2d"),
+        A: common_vendor.o(createCourse, "d8"),
+        B: common_vendor.o(() => {
+        }, "38"),
+        C: common_vendor.o(closeModal, "72")
       } : {});
     };
   }

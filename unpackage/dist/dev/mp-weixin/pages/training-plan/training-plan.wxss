@@ -10,7 +10,7 @@
 }
 .header-bar.data-v-be437309 {
 	background: linear-gradient(135deg, #07c160, #0ebf8c);
-	padding: 36rpx 32rpx 48rpx;
+	padding: 8rpx 32rpx 32rpx;
 	color: #fff;
 }
 .title.data-v-be437309 {

@@ -1,9 +1,6 @@
 <template>
   <view class="page-container">
-    <!-- 顶部标题区 -->
-    <view class="header-bar">
-      <text class="header-title">我的课程</text>
-    </view>
+    <page-nav-bar title="我的课程" :show-back="false" />
 
     <!-- 课程列表 -->
     <view class="content-area">

@@ -33,7 +33,7 @@
 /* 顶部状态栏 */
 .header-bar.data-v-b984102b {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40rpx 32rpx 32rpx;
+  padding: 16rpx 32rpx 24rpx;
   position: relative;
 }
 .header-bar.connected.data-v-b984102b {

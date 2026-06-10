@@ -153,42 +153,12 @@ function fetchPlanProjectsByTeacher(teacherId) {
     });
   });
 }
-async function fetchMergedProjectCatalogRows(planId, teacherId) {
-  const tid = Number(teacherId);
-  if (!Number.isFinite(tid) || tid <= 0)
-    return [];
-  let byTeacher = [];
-  let byPlan = [];
-  try {
-    byTeacher = await fetchPlanProjectsByTeacher(tid);
-  } catch {
-    byTeacher = [];
-  }
-  if (planId != null && planId !== "") {
-    try {
-      byPlan = await fetchPlanProjectsByPlan(planId);
-    } catch {
-      byPlan = [];
-    }
-  }
-  const map = /* @__PURE__ */ new Map();
-  for (const p of [...Array.isArray(byTeacher) ? byTeacher : [], ...Array.isArray(byPlan) ? byPlan : []]) {
-    const id = p.id ?? p.itemId;
-    if (id == null)
-      continue;
-    const key = String(id);
-    if (!map.has(key)) {
-      map.set(key, p);
-    }
-  }
-  return [...map.values()];
-}
-async function fetchTrainingProjectCatalogForArrange(planId, teacherId) {
+async function fetchTrainingProjectCatalogForArrange(_planId, teacherId) {
   const tid = teacherId != null && teacherId !== "" ? Number(teacherId) : getTeacherIdFromStorage();
   if (!Number.isFinite(tid) || tid <= 0)
     return [];
   try {
-    const rows = await fetchMergedProjectCatalogRows(planId, tid);
+    const rows = await fetchPlanProjectsByTeacher(tid);
     if (!Array.isArray(rows))
       return [];
     return rows.map((p) => ({
@@ -321,9 +291,6 @@ async function createTeachingPlan(body) {
   const data = await teachingJsonRequest("POST", "/teaching/plan/create", payload);
   return normalizeCreateLongId(data);
 }
-async function createTrainingPlanDraft(extra) {
-  return createTeachingPlan(extra && typeof extra === "object" ? extra : {});
-}
 function updateTeachingPlan(body) {
   return teachingJsonRequest("PUT", "/teaching/plan/update", body);
 }
@@ -422,33 +389,6 @@ async function saveTrainingPlanArrangement(payload) {
       byId.set(pid, p);
   }
   const slots = Array.isArray(payload.slots) ? payload.slots : [];
-  const existingIds = new Set(
-    (Array.isArray(existingList) ? existingList : []).map((p) => p.id != null ? Number(p.id) : NaN).filter((n) => Number.isFinite(n))
-  );
-  for (const slot of slots) {
-    const proj = slot && slot.project;
-    if (!proj || proj.id == null || proj.id === "")
-      continue;
-    const sid = String(proj.id);
-    if (sid.startsWith("demo-") || sid.startsWith("tmp_") || sid.startsWith("new_"))
-      continue;
-    const id = parseInt(sid, 10);
-    if (!Number.isFinite(id) || existingIds.has(id))
-      continue;
-    await associatePlanProject(id, planIdNum);
-    existingIds.add(id);
-  }
-  try {
-    existingList = await fetchPlanProjectsByPlan(planIdNum);
-  } catch {
-    existingList = [];
-  }
-  byId.clear();
-  for (const p of Array.isArray(existingList) ? existingList : []) {
-    const pid = p.id != null ? Number(p.id) : NaN;
-    if (Number.isFinite(pid))
-      byId.set(pid, p);
-  }
   let order = 0;
   for (let i = 0; i < slots.length; i++) {
     const proj = slots[i] && slots[i].project;
@@ -606,6 +546,42 @@ function associatePlanProject(itemId, planId) {
   return teachingJsonRequest("POST", "/teaching/plan-project/associate-plan", {
     id,
     planId: pid
+  });
+}
+function disassociatePlanProject(itemId) {
+  const id = typeof itemId === "number" ? itemId : parseInt(String(itemId), 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    return Promise.reject(new Error("项目 id 无效"));
+  }
+  return new Promise((resolve, reject) => {
+    common_vendor.index.request({
+      url: `${TEACHING_API_BASE}/teaching/plan-project/delete?id=${id}`,
+      method: "DELETE",
+      header: {
+        Authorization: `Bearer ${getToken()}`,
+        "Tenant-Id": "1"
+      },
+      success: (res) => {
+        const d = res.data;
+        if (d == null) {
+          reject(new Error("空响应"));
+          return;
+        }
+        if (typeof d.code === "number") {
+          if (d.code === 0) {
+            resolve(d.data !== void 0 ? d.data : null);
+          } else {
+            reject(new Error(d.msg || `请求失败(${d.code})`));
+          }
+          return;
+        }
+        resolve(d);
+      },
+      fail: (err) => {
+        const msg = err && (err.errMsg || err.message) || (typeof err === "string" ? err : "网络错误");
+        reject(new Error(msg));
+      }
+    });
   });
 }
 async function createPlanProjectMinimal(planId, itemName) {
@@ -856,9 +832,10 @@ exports.bindPlanToCurrentLesson = bindPlanToCurrentLesson;
 exports.createPlanMaterial = createPlanMaterial;
 exports.createPlanProject = createPlanProject;
 exports.createPlanProjectMinimal = createPlanProjectMinimal;
-exports.createTrainingPlanDraft = createTrainingPlanDraft;
+exports.createTeachingPlan = createTeachingPlan;
 exports.deletePlanProject = deletePlanProject;
 exports.deleteTeachingPlan = deleteTeachingPlan;
+exports.disassociatePlanProject = disassociatePlanProject;
 exports.extractPlanProjectItemId = extractPlanProjectItemId;
 exports.fetchPlanListByTeacher = fetchPlanListByTeacher;
 exports.fetchPlanProjectById = fetchPlanProjectById;

@@ -8,7 +8,7 @@
  * - saveTrainingPlanArrangement → 多次 PUT /teaching/plan-project/update 写 sortOrder
  * - createPlanProject → POST /teaching/plan-project/create（data 为 Long）；「新建训练项目」弹窗不传 planId，仅 teacherId + 业务字段
  * - associatePlanProject → POST /teaching/plan-project/associate-plan（id + planId，将项目关联到计划）
- * - deletePlanProject → DELETE /teaching/plan-project/delete?id=（项目 id）
+ * - disassociatePlanProject → DELETE /teaching/plan-project/delete?id=（项目 id，删除项目）
  * - deleteTeachingPlan → DELETE /teaching/plan/delete?id=（教学计划 id）
  */
 
@@ -206,49 +206,15 @@ export function fetchPlanProjectsByTeacher(teacherId) {
 }
 
 /**
- * 教师项目库 ∪ 当前计划项目（按 id 去重）
- * @param {number|string|undefined} planId
- * @param {number|string} teacherId
- */
-export async function fetchMergedProjectCatalogRows(planId, teacherId) {
-	const tid = Number(teacherId)
-	if (!Number.isFinite(tid) || tid <= 0) return []
-	let byTeacher = []
-	let byPlan = []
-	try {
-		byTeacher = await fetchPlanProjectsByTeacher(tid)
-	} catch {
-		byTeacher = []
-	}
-	if (planId != null && planId !== '') {
-		try {
-			byPlan = await fetchPlanProjectsByPlan(planId)
-		} catch {
-			byPlan = []
-		}
-	}
-	const map = new Map()
-	for (const p of [...(Array.isArray(byTeacher) ? byTeacher : []), ...(Array.isArray(byPlan) ? byPlan : [])]) {
-		const id = p.id ?? p.itemId
-		if (id == null) continue
-		const key = String(id)
-		if (!map.has(key)) {
-			map.set(key, p)
-		}
-	}
-	return [...map.values()]
-}
-
-/**
- * 左侧目录：与 fetchTrainingProjectCatalog 结构一致
- * @param {number|string|undefined} planId
+ * 编排页项目库：GET /teaching/plan-project/list-by-teacher
+ * @param {number|string|undefined} [_planId] 保留参数兼容旧调用，不参与请求
  * @param {number|string} [teacherId] 默认从 storage
  */
-export async function fetchTrainingProjectCatalogForArrange(planId, teacherId) {
+export async function fetchTrainingProjectCatalogForArrange(_planId, teacherId) {
 	const tid = teacherId != null && teacherId !== '' ? Number(teacherId) : getTeacherIdFromStorage()
 	if (!Number.isFinite(tid) || tid <= 0) return []
 	try {
-		const rows = await fetchMergedProjectCatalogRows(planId, tid)
+		const rows = await fetchPlanProjectsByTeacher(tid)
 		if (!Array.isArray(rows)) return []
 		return rows.map((p) => ({
 			id: p.id != null ? String(p.id) : `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -516,7 +482,8 @@ export async function bindPlanToCurrentLesson(opts) {
 }
 
 /**
- * 保存计划区顺序：对每条有服务端 id 的项目多次 PUT /teaching/plan-project/update
+ * 保存计划区顺序：对每条有服务端 id 的项目多次 PUT /teaching/plan-project/update。
+ * 项目关联在「从项目库添加」时已通过 associate-plan 完成，此处不再重复关联。
  * @param {{ planId: number|string, slots: Array<{ project: { id: string, name: string, durationMin?: number } }> }} payload
  */
 export async function saveTrainingPlanArrangement(payload) {
@@ -540,31 +507,6 @@ export async function saveTrainingPlanArrangement(payload) {
 		if (Number.isFinite(pid)) byId.set(pid, p)
 	}
 	const slots = Array.isArray(payload.slots) ? payload.slots : []
-	const existingIds = new Set(
-		(Array.isArray(existingList) ? existingList : [])
-			.map((p) => (p.id != null ? Number(p.id) : NaN))
-			.filter((n) => Number.isFinite(n)),
-	)
-	for (const slot of slots) {
-		const proj = slot && slot.project
-		if (!proj || proj.id == null || proj.id === '') continue
-		const sid = String(proj.id)
-		if (sid.startsWith('demo-') || sid.startsWith('tmp_') || sid.startsWith('new_')) continue
-		const id = parseInt(sid, 10)
-		if (!Number.isFinite(id) || existingIds.has(id)) continue
-		await associatePlanProject(id, planIdNum)
-		existingIds.add(id)
-	}
-	try {
-		existingList = await fetchPlanProjectsByPlan(planIdNum)
-	} catch {
-		existingList = []
-	}
-	byId.clear()
-	for (const p of Array.isArray(existingList) ? existingList : []) {
-		const pid = p.id != null ? Number(p.id) : NaN
-		if (Number.isFinite(pid)) byId.set(pid, p)
-	}
 	let order = 0
 	for (let i = 0; i < slots.length; i++) {
 		const proj = slots[i] && slots[i].project
@@ -814,6 +756,50 @@ export function associatePlanProject(itemId, planId) {
 	return teachingJsonRequest('POST', '/teaching/plan-project/associate-plan', {
 		id,
 		planId: pid,
+	})
+}
+
+/**
+ * 删除训练项目
+ * DELETE /teaching/plan-project/delete?id=
+ * @param {number|string} itemId 项目 id
+ */
+export function disassociatePlanProject(itemId) {
+	const id = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10)
+	if (!Number.isFinite(id) || id <= 0) {
+		return Promise.reject(new Error('项目 id 无效'))
+	}
+	return new Promise((resolve, reject) => {
+		uni.request({
+			url: `${TEACHING_API_BASE}/teaching/plan-project/delete?id=${id}`,
+			method: 'DELETE',
+			header: {
+				Authorization: `Bearer ${getToken()}`,
+				'Tenant-Id': '1',
+			},
+			success: (res) => {
+				const d = res.data
+				if (d == null) {
+					reject(new Error('空响应'))
+					return
+				}
+				if (typeof d.code === 'number') {
+					if (d.code === 0) {
+						resolve(d.data !== undefined ? d.data : null)
+					} else {
+						reject(new Error(d.msg || `请求失败(${d.code})`))
+					}
+					return
+				}
+				resolve(d)
+			},
+			fail: (err) => {
+				const msg =
+					(err && (err.errMsg || err.message)) ||
+					(typeof err === 'string' ? err : '网络错误')
+				reject(new Error(msg))
+			},
+		})
 	})
 }
 

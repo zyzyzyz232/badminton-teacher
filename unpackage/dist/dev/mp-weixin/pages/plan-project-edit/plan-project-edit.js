@@ -1,11 +1,20 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const services_trainingPlanApi = require("../../services/trainingPlanApi.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const _sfc_main = {
   __name: "plan-project-edit",
   setup(__props) {
     const itemId = common_vendor.ref(0);
     const planIdFromQuery = common_vendor.ref(0);
+    const planTitleFromQuery = common_vendor.ref("");
     const loading = common_vendor.ref(true);
     const saving = common_vendor.ref(false);
     const deleting = common_vendor.ref(false);
@@ -139,7 +148,7 @@ const _sfc_main = {
         `planId=${pid}`,
         `itemId=${form.id}`,
         `projectName=${encodeURIComponent(form.itemName || "")}`,
-        `planTitle=${encodeURIComponent("训练计划")}`
+        `planTitle=${encodeURIComponent((planTitleFromQuery.value || "").trim() || "训练计划")}`
       ].join("&");
       common_vendor.index.navigateTo({ url: `/pages/material-manage/material-manage?${q}` });
     }
@@ -156,6 +165,11 @@ const _sfc_main = {
       if (Number.isFinite(qPlan) && qPlan > 0) {
         planIdFromQuery.value = qPlan;
         form.planId = qPlan;
+      }
+      try {
+        planTitleFromQuery.value = opt && opt.planTitle ? decodeURIComponent(opt.planTitle) : "";
+      } catch {
+        planTitleFromQuery.value = opt && opt.planTitle || "";
       }
       const fallbackName = opt && opt.itemName ? decodeURIComponent(opt.itemName) : "";
       try {
@@ -176,36 +190,39 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: loading.value
+        a: common_vendor.p({
+          title: "编辑训练项目"
+        }),
+        b: loading.value
       }, loading.value ? {} : common_vendor.e({
-        b: form.itemName,
-        c: common_vendor.o(($event) => form.itemName = $event.detail.value, "78"),
-        d: form.itemContent,
-        e: common_vendor.o(($event) => form.itemContent = $event.detail.value, "fe"),
-        f: common_vendor.t(itemTypeLabels[itemTypeIndex.value]),
-        g: itemTypeLabels,
-        h: itemTypeIndex.value,
-        i: common_vendor.o(onItemType, "46"),
-        j: common_vendor.t(difficultyLabels[difficultyIndex.value]),
-        k: difficultyLabels,
-        l: difficultyIndex.value,
-        m: common_vendor.o(onDifficulty, "af"),
-        n: form.duration,
-        o: common_vendor.o(($event) => form.duration = $event.detail.value, "11"),
-        p: form.score,
-        q: common_vendor.o(($event) => form.score = $event.detail.value, "99"),
-        r: form.sortOrder,
-        s: common_vendor.o(($event) => form.sortOrder = $event.detail.value, "75"),
-        t: saving.value,
-        v: common_vendor.o(onSave, "01"),
-        w: form.id && effectivePlanId.value > 0
+        c: form.itemName,
+        d: common_vendor.o(($event) => form.itemName = $event.detail.value, "b1"),
+        e: form.itemContent,
+        f: common_vendor.o(($event) => form.itemContent = $event.detail.value, "5d"),
+        g: common_vendor.t(itemTypeLabels[itemTypeIndex.value]),
+        h: itemTypeLabels,
+        i: itemTypeIndex.value,
+        j: common_vendor.o(onItemType, "0f"),
+        k: common_vendor.t(difficultyLabels[difficultyIndex.value]),
+        l: difficultyLabels,
+        m: difficultyIndex.value,
+        n: common_vendor.o(onDifficulty, "68"),
+        o: form.duration,
+        p: common_vendor.o(($event) => form.duration = $event.detail.value, "ae"),
+        q: form.score,
+        r: common_vendor.o(($event) => form.score = $event.detail.value, "34"),
+        s: form.sortOrder,
+        t: common_vendor.o(($event) => form.sortOrder = $event.detail.value, "f6"),
+        v: saving.value,
+        w: common_vendor.o(onSave, "97"),
+        x: form.id && effectivePlanId.value > 0
       }, form.id && effectivePlanId.value > 0 ? {
-        x: common_vendor.o(goMaterial, "3c")
+        y: common_vendor.o(goMaterial, "1a")
       } : {}, {
-        y: form.id
+        z: form.id
       }, form.id ? {
-        z: deleting.value,
-        A: common_vendor.o(onDelete, "df")
+        A: deleting.value,
+        B: common_vendor.o(onDelete, "78")
       } : {}));
     };
   }

@@ -1,0 +1,40 @@
+
+.page-nav-bar.data-v-869f9292 {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 44px;
+	padding: 0 24rpx 16rpx;
+	background: linear-gradient(135deg, #07c160, #0ebf8c);
+	color: #fff;
+	flex-shrink: 0;
+	box-sizing: content-box;
+}
+.nav-back.data-v-869f9292 {
+	display: flex;
+	align-items: center;
+	min-width: 120rpx;
+	padding: 8rpx 0;
+}
+.nav-back-icon.data-v-869f9292 {
+	font-size: 44rpx;
+	line-height: 1;
+	margin-right: 4rpx;
+	font-weight: 300;
+}
+.nav-back-text.data-v-869f9292 {
+	font-size: 28rpx;
+}
+.nav-title.data-v-869f9292 {
+	flex: 1;
+	text-align: center;
+	font-size: 32rpx;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 0 8rpx;
+}
+.nav-side-placeholder.data-v-869f9292 {
+	min-width: 120rpx;
+}

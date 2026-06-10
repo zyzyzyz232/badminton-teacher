@@ -28,9 +28,10 @@
   background-color: #f5f7fa;
 }
 .top-bg.data-v-27eab1e4 {
-  height: 240rpx;
+  min-height: 0;
+  height: auto;
   background: linear-gradient(135deg, #07c160, #0ebf8c);
-  padding: 40rpx 30rpx;
+  padding: 16rpx 30rpx 28rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;

@@ -119,6 +119,22 @@
 			}
 		},
 		{
+			"path": "pages/training-plan-info/training-plan-info",
+			"style": {
+				"navigationBarTitleText": "训练计划",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/training-plan-projects/training-plan-projects",
+			"style": {
+				"navigationBarTitleText": "训练项目编排",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
 			"path": "pages/training-plan-arrange/training-plan-arrange",
 			"style": {
 				"navigationBarTitleText": "训练计划安排",

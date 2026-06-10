@@ -1,6 +1,14 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const services_trainingPlanApi = require("../../services/trainingPlanApi.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const _sfc_main = {
   __name: "training-plan",
   setup(__props) {
@@ -20,7 +28,7 @@ const _sfc_main = {
     }
     function openArrange(planId) {
       common_vendor.index.navigateTo({
-        url: `/pages/training-plan-arrange/training-plan-arrange?planId=${encodeURIComponent(planId)}`
+        url: `/pages/training-plan-info/training-plan-info?planId=${encodeURIComponent(planId)}`
       });
     }
     function confirmDeletePlan(plan) {
@@ -52,7 +60,7 @@ const _sfc_main = {
     }
     function openNewArrange() {
       common_vendor.index.navigateTo({
-        url: "/pages/training-plan-arrange/training-plan-arrange?mode=new"
+        url: "/pages/training-plan-info/training-plan-info?mode=new"
       });
     }
     common_vendor.onShow(() => {
@@ -60,7 +68,11 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.f(planList.value, (plan, k0, i0) => {
+        a: common_vendor.p({
+          title: "训练计划",
+          ["show-back"]: false
+        }),
+        b: common_vendor.f(planList.value, (plan, k0, i0) => {
           return common_vendor.e({
             a: common_vendor.t(plan.title),
             b: common_vendor.o(($event) => confirmDeletePlan(plan), plan.id),
@@ -74,9 +86,9 @@ const _sfc_main = {
             g: common_vendor.o(($event) => openArrange(plan.id), plan.id)
           });
         }),
-        b: !loading.value && planList.value.length === 0
+        c: !loading.value && planList.value.length === 0
       }, !loading.value && planList.value.length === 0 ? {} : {}, {
-        c: common_vendor.o(openNewArrange, "28")
+        d: common_vendor.o(openNewArrange, "1d")
       });
     };
   }

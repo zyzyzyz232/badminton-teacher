@@ -1,6 +1,14 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const services_examRecognition = require("../../services/examRecognition.js");
+if (!Array) {
+  const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
+  _easycom_page_nav_bar2();
+}
+const _easycom_page_nav_bar = () => "../../components/page-nav-bar/page-nav-bar.js";
+if (!Math) {
+  _easycom_page_nav_bar();
+}
 const _sfc_main = {
   __name: "exam-active",
   setup(__props) {
@@ -72,7 +80,7 @@ const _sfc_main = {
           common_vendor.index.showToast({ title: "识别服务开发中", icon: "none" });
         }
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:132", e);
+        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:133", e);
         common_vendor.index.showToast({ title: "启动失败", icon: "none" });
       } finally {
         common_vendor.index.hideLoading();
@@ -121,7 +129,7 @@ const _sfc_main = {
         lastTaskStatus.value = result.status || "";
         common_vendor.index.showToast({ title: "已提交分析任务", icon: "success" });
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:180", e);
+        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:181", e);
         const msg = (e == null ? void 0 : e.message) || "上传识别失败";
         common_vendor.index.showToast({ title: msg, icon: "none" });
       } finally {
@@ -136,7 +144,7 @@ const _sfc_main = {
         sessionId.value = null;
         isRecognizing.value = false;
       } catch (e) {
-        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:196", e);
+        common_vendor.index.__f__("error", "at pages/exam-active/exam-active.vue:197", e);
         common_vendor.index.showToast({ title: "结束失败", icon: "none" });
       } finally {
         common_vendor.index.hideLoading();
@@ -166,32 +174,35 @@ const _sfc_main = {
     });
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(className.value || "--"),
-        b: common_vendor.t(venueDisplayText.value),
-        c: common_vendor.t(studentName.value || "--"),
-        d: studentNo.value
+        a: common_vendor.p({
+          title: "考核识别"
+        }),
+        b: common_vendor.t(className.value || "--"),
+        c: common_vendor.t(venueDisplayText.value),
+        d: common_vendor.t(studentName.value || "--"),
+        e: studentNo.value
       }, studentNo.value ? {
-        e: common_vendor.t(studentNo.value)
+        f: common_vendor.t(studentNo.value)
       } : {}, {
-        f: common_vendor.t(examTypeLabel.value),
-        g: lastRequestId.value
+        g: common_vendor.t(examTypeLabel.value),
+        h: lastRequestId.value
       }, lastRequestId.value ? {
-        h: common_vendor.t(lastRequestId.value)
+        i: common_vendor.t(lastRequestId.value)
       } : {}, {
-        i: lastTaskStatus.value
+        j: lastTaskStatus.value
       }, lastTaskStatus.value ? {
-        j: common_vendor.t(lastTaskStatus.value)
+        k: common_vendor.t(lastTaskStatus.value)
       } : {}, {
-        k: isActionRecognition.value
+        l: isActionRecognition.value
       }, isActionRecognition.value ? {
-        l: common_vendor.t(isRecognizing.value ? "上传中…" : "测试上传识别"),
-        m: isRecognizing.value ? 1 : "",
-        n: common_vendor.o(onUploadAndRecognizeTest, "a3")
+        m: common_vendor.t(isRecognizing.value ? "上传中…" : "测试上传识别"),
+        n: isRecognizing.value ? 1 : "",
+        o: common_vendor.o(onUploadAndRecognizeTest, "d3")
       } : {}, {
-        o: common_vendor.t(isRecognizing.value ? "识别中…" : "开始识别"),
-        p: isRecognizing.value ? 1 : "",
-        q: common_vendor.o(onStartRecognize, "4e"),
-        r: common_vendor.o(onStopRecognize, "95")
+        p: common_vendor.t(isRecognizing.value ? "识别中…" : "开始识别"),
+        q: isRecognizing.value ? 1 : "",
+        r: common_vendor.o(onStartRecognize, "35"),
+        s: common_vendor.o(onStopRecognize, "7d")
       });
     };
   }
