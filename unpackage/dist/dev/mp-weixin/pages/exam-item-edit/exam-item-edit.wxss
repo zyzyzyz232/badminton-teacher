@@ -1,0 +1,220 @@
+/**
+ * 这里是uni-app内置的常用样式变量
+ *
+ * uni-app 官方扩展插件及插件市场（https://ext.dcloud.net.cn）上很多三方插件均使用了这些样式变量
+ * 如果你是插件开发者，建议你使用scss预处理，并在插件代码中直接使用这些变量（无需 import 这个文件），方便用户通过搭积木的方式开发整体风格一致的App
+ *
+ */
+/**
+ * 如果你是App开发者（插件使用者），你可以通过修改这些变量来定制自己的插件主题，实现自定义主题功能
+ *
+ * 如果你的项目同样使用了scss预处理，你也可以直接在你的 scss 代码中使用如下变量，同时无需 import 这个文件
+ */
+/* 颜色变量 */
+/* 行为相关颜色 */
+/* 文字基本颜色 */
+/* 背景颜色 */
+/* 边框颜色 */
+/* 尺寸变量 */
+/* 文字尺寸 */
+/* 图片尺寸 */
+/* Border Radius */
+/* 水平间距 */
+/* 垂直间距 */
+/* 透明度 */
+/* 文章场景相关 */
+.page-container.data-v-2765cfd7 {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding-bottom: 60rpx;
+}
+.top-bg.data-v-2765cfd7 {
+  height: 220rpx;
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  padding: 50rpx 40rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.class-info.data-v-2765cfd7 {
+  text-align: center;
+  color: #fff;
+}
+.class-name.data-v-2765cfd7 {
+  font-size: 36rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 12rpx;
+}
+.subtitle.data-v-2765cfd7 {
+  font-size: 26rpx;
+  opacity: 0.9;
+}
+.content-area.data-v-2765cfd7 {
+  padding: 30rpx;
+  margin-top: -36rpx;
+}
+.form-card.data-v-2765cfd7 {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 36rpx 28rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+.form-title.data-v-2765cfd7 {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  padding-left: 16rpx;
+  border-left: 8rpx solid #07c160;
+}
+.hint-row.data-v-2765cfd7 {
+  font-size: 24rpx;
+  color: #888;
+  margin-bottom: 28rpx;
+  background: #f5f7fa;
+  padding: 14rpx 18rpx;
+  border-radius: 8rpx;
+}
+.form-item.data-v-2765cfd7 {
+  margin-bottom: 32rpx;
+}
+.form-label.data-v-2765cfd7 {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 14rpx;
+  font-weight: 500;
+}
+.form-input.data-v-2765cfd7 {
+  height: 88rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  padding: 0 28rpx;
+  font-size: 30rpx;
+  color: #333;
+  box-sizing: border-box;
+}
+.type-segment.data-v-2765cfd7 {
+  display: flex;
+  gap: 16rpx;
+}
+.type-segment-item.data-v-2765cfd7 {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+.type-segment-item.active.data-v-2765cfd7 {
+  background: #e6f9ef;
+  color: #07c160;
+  font-weight: 600;
+}
+.type-inline.data-v-2765cfd7 {
+  flex: none;
+}
+.type-inline .type-segment-item.data-v-2765cfd7 {
+  flex: none;
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+}
+.submit-btn.data-v-2765cfd7 {
+  margin-top: 40rpx;
+  height: 96rpx;
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: bold;
+  border-radius: 48rpx;
+  border: none;
+}
+.submit-btn.data-v-2765cfd7::after {
+  display: none;
+}
+.material-section.data-v-2765cfd7 {
+  margin-top: 40rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+.section-head.data-v-2765cfd7 {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+.section-title.data-v-2765cfd7 {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+}
+.upload-btn.data-v-2765cfd7 {
+  background: #f5f7fa;
+  border: 2rpx dashed #07c160;
+  color: #07c160;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  margin-bottom: 24rpx;
+}
+.material-card.data-v-2765cfd7 {
+  border-top: 1rpx solid #f0f0f0;
+  padding: 24rpx 0;
+}
+.media-box.data-v-2765cfd7 {
+  position: relative;
+  margin-bottom: 12rpx;
+}
+.thumb.data-v-2765cfd7 {
+  width: 100%;
+  height: 280rpx;
+  border-radius: 12rpx;
+  background: #eee;
+}
+.thumb-video.data-v-2765cfd7 {
+  width: 100%;
+  height: 280rpx;
+  border-radius: 12rpx;
+}
+.tag.data-v-2765cfd7 {
+  position: absolute;
+  left: 16rpx;
+  top: 16rpx;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+.material-title.data-v-2765cfd7 {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+}
+.material-desc.data-v-2765cfd7 {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-top: 6rpx;
+}
+.material-actions.data-v-2765cfd7 {
+  margin-top: 12rpx;
+}
+.del.data-v-2765cfd7 {
+  color: #ff4d4f;
+  font-size: 26rpx;
+}
+.empty-mat.data-v-2765cfd7,
+.hint-after-create.data-v-2765cfd7 {
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: #999;
+  text-align: center;
+  padding: 20rpx;
+}

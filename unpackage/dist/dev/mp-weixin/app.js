@@ -9,6 +9,10 @@ if (!Math) {
   "./pages/exam-setup/exam-setup.js";
   "./pages/exam-session/exam-session.js";
   "./pages/exam-active/exam-active.js";
+  "./pages/exam-list/exam-list.js";
+  "./pages/exam-create/exam-create.js";
+  "./pages/exam-items/exam-items.js";
+  "./pages/exam-item-edit/exam-item-edit.js";
   "./pages/lesson-list/lesson-list.js";
   "./pages/me/me.js";
   "./pages/my-courses/my-courses.js";

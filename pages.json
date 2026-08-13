@@ -55,6 +55,38 @@
 			}
 		},
 		{
+			"path": "pages/exam-list/exam-list",
+			"style": {
+				"navigationBarTitleText": "考试列表",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-create/exam-create",
+			"style": {
+				"navigationBarTitleText": "新建考试",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-items/exam-items",
+			"style": {
+				"navigationBarTitleText": "考核项",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-item-edit/exam-item-edit",
+			"style": {
+				"navigationBarTitleText": "编辑考核项",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
 			"path": "pages/lesson-list/lesson-list",
 			"style": {
 				"navigationBarTitleText": "课堂列表",

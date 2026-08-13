@@ -91,7 +91,7 @@ const goToLessonList = () => {
 const goToExamSetup = () => {
   const name = encodeURIComponent(className.value || '');
   uni.navigateTo({
-    url: `/pages/lesson-list/lesson-list?courseId=${courseId.value}&classId=${classId.value}&className=${name}&forExam=1`
+    url: `/pages/exam-list/exam-list?courseId=${courseId.value}&classId=${classId.value}&className=${name}`
   });
 };
 

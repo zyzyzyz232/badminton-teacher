@@ -26,7 +26,7 @@ const _sfc_main = {
     const startTimeValue = common_vendor.ref([0, 0, 0, 0, 0]);
     const endTimeValue = common_vendor.ref([0, 0, 0, 0, 0]);
     const weekOptions = Array.from({ length: 16 }, (_, i) => `第${i + 1}周`);
-    const typeOptions = ["普通课堂"];
+    const typeOptions = ["普通课堂", "考试课堂"];
     const years = Array.from({ length: 5 }, (_, i) => 2024 + i + "年");
     const months = Array.from({ length: 12 }, (_, i) => i + 1 + "月");
     const days = Array.from({ length: 31 }, (_, i) => i + 1 + "日");
@@ -52,12 +52,14 @@ const _sfc_main = {
       return `${year}-${month}-${day} ${hour}:${minute}:00`;
     };
     const onWeekChange = (e) => {
-      weekIndex.value = e.detail.value;
-      form.weekIndex = e.detail.value + 1;
+      const idx = Number(e.detail.value);
+      weekIndex.value = Number.isFinite(idx) ? idx : -1;
+      form.weekIndex = weekIndex.value + 1;
     };
     const onTypeChange = (e) => {
-      typeIndex.value = e.detail.value;
-      form.type = e.detail.value + 1;
+      const idx = Number(e.detail.value);
+      typeIndex.value = Number.isFinite(idx) ? idx : 0;
+      form.type = typeIndex.value + 1;
     };
     const onStartTimeChange = (e) => {
       startTimeValue.value = e.detail.value;
@@ -96,10 +98,10 @@ const _sfc_main = {
         },
         data: {
           courseId: courseId.value,
-          weekIndex: form.weekIndex,
+          weekIndex: Number(form.weekIndex),
           startTime: form.startTime,
           endTime: form.endTime,
-          type: form.type
+          type: Number(form.type)
         },
         success: (res) => {
           common_vendor.index.hideLoading();
@@ -114,20 +116,34 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-create/lesson-create.vue:203", "创建失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-create/lesson-create.vue:204", "创建失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
     };
+    function decodeClassName(raw) {
+      if (!raw)
+        return "班级详情";
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
     common_vendor.onMounted(() => {
       const pages = getCurrentPages();
       const currentPage = pages[pages.length - 1];
-      const options = currentPage.options;
+      const options = currentPage.options || {};
       courseId.value = parseInt(options.courseId) || 0;
       classId.value = parseInt(options.classId) || 0;
-      className.value = options.className || "班级详情";
+      className.value = decodeClassName(options.className);
+      const preferType = parseInt(options.preferType, 10);
+      if (preferType === 2) {
+        typeIndex.value = 1;
+        form.type = 2;
+      }
       common_vendor.index.setNavigationBarTitle({
-        title: "创建课堂"
+        title: preferType === 2 ? "创建考试课堂" : "创建课堂"
       });
       const currentValue = getCurrentDateTimeValue();
       startTimeValue.value = [...currentValue];

@@ -51,7 +51,7 @@ const _sfc_main = {
     const goToExamSetup = () => {
       const name = encodeURIComponent(className.value || "");
       common_vendor.index.navigateTo({
-        url: `/pages/lesson-list/lesson-list?courseId=${courseId.value}&classId=${classId.value}&className=${name}&forExam=1`
+        url: `/pages/exam-list/exam-list?courseId=${courseId.value}&classId=${classId.value}&className=${name}`
       });
     };
     function decodeName(raw) {

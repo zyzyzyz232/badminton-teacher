@@ -35,7 +35,7 @@
             <view class="lesson-header">
               <view class="lesson-week">
                 <text class="week-num">第{{ item.weekIndex }}周</text>
-                <text class="lesson-type">{{ item.typeText || '普通课堂' }}</text>
+                <text class="lesson-type">{{ lessonTypeText(item) }}</text>
               </view>
               <text class="lesson-status" :class="getStatusClass(item.status)">
                 {{ item.statusText || '未开始' }}
@@ -57,8 +57,8 @@
             <view v-if="!forExam" class="action-btn delete" @click.stop="deleteLesson(item)">
               <text>删除</text>
             </view>
-            <view class="action-btn enter" @click.stop="enterLesson(item)">
-              <text>{{ forExam ? '考试设置' : '进入课堂' }}</text>
+          <view class="action-btn enter" @click.stop="enterLesson(item)">
+              <text>{{ isExamLesson(item) || forExam ? '配置考核项' : '进入课堂' }}</text>
             </view>
           </view>
         </view>
@@ -77,6 +77,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
+import { fetchExamListByCourse, resolveExamId, resolveLessonId } from '../../services/examApi.js';
 
 // 接口基础地址
 const BASE_URL = "http://10.112.189.54:48080/admin-api";
@@ -140,6 +141,18 @@ function resolveLessonRowId(item) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isExamLesson(item) {
+  const t = Number(item?.type ?? item?.lessonType);
+  if (t === 2) return true;
+  return String(item?.typeText || '').includes('考试');
+}
+
+function lessonTypeText(item) {
+  if (isExamLesson(item)) return '考试课堂';
+  if (item?.typeText) return item.typeText;
+  return '普通课堂';
+}
+
 // 跳转到创建课堂页
 const goToCreateLesson = () => {
   const name = encodeURIComponent(className.value || '');
@@ -192,23 +205,42 @@ const doDeleteLesson = (lessonId) => {
   });
 };
 
-const goToExamSetupForLesson = (item) => {
+const goToExamConfigForLesson = async (item) => {
   const lid = resolveLessonRowId(item);
   if (!lid) {
     uni.showToast({ title: '课堂数据缺少编号', icon: 'none' });
     return;
   }
   const name = encodeURIComponent(className.value || '');
-  const wid = item.weekIndex != null ? item.weekIndex : 0;
-  uni.navigateTo({
-    url: `/pages/exam-setup/exam-setup?lessonId=${lid}&lessonWeek=${wid}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`
-  });
+  const week = item.weekIndex != null ? item.weekIndex : 0;
+  uni.showLoading({ title: '加载中...' });
+  try {
+    const data = await fetchExamListByCourse(courseId.value);
+    const list = Array.isArray(data) ? data : [];
+    const exam = list.find((row) => Number(row.lessonId ?? resolveLessonId(row)) === lid);
+    uni.hideLoading();
+    if (exam && resolveExamId(exam)) {
+      const title = encodeURIComponent(exam.title || `第${week}周考试`);
+      uni.navigateTo({
+        url: `/pages/exam-items/exam-items?examId=${resolveExamId(exam)}&examTitle=${title}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`,
+      });
+      return;
+    }
+    uni.navigateTo({
+      url: `/pages/exam-create/exam-create?courseId=${courseId.value}&classId=${classId.value}&className=${name}&lessonId=${lid}&lessonWeek=${week}`,
+    });
+  } catch (e) {
+    uni.hideLoading();
+    setTimeout(() => {
+      uni.showToast({ title: e.message || '加载考试失败', icon: 'none' });
+    }, 80);
+  }
 };
 
-// 进入课堂（选择训练计划）或考试流程（考核选项）
+// 普通课堂进训练计划；考试课堂进考核项配置
 const enterLesson = (item) => {
-  if (forExam.value) {
-    goToExamSetupForLesson(item);
+  if (forExam.value || isExamLesson(item)) {
+    goToExamConfigForLesson(item);
     return;
   }
   const lid = resolveLessonRowId(item);

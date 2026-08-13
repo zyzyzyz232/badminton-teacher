@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "编辑考核项",
+  "navigationBarBackgroundColor": "#07c160",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "page-nav-bar": "../../components/page-nav-bar/page-nav-bar"
+  }
+}

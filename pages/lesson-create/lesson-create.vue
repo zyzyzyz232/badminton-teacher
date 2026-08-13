@@ -88,7 +88,7 @@ const endTimeValue = ref([0, 0, 0, 0, 0]);
 
 // 选项数据
 const weekOptions = Array.from({ length: 16 }, (_, i) => `第${i + 1}周`);
-const typeOptions = ['普通课堂'];
+const typeOptions = ['普通课堂', '考试课堂'];
 
 // 日期时间选择器范围
 const years = Array.from({ length: 5 }, (_, i) => (2024 + i) + '年');
@@ -123,14 +123,15 @@ const formatDateTime = (value) => {
 
 // 周次选择
 const onWeekChange = (e) => {
-  weekIndex.value = e.detail.value;
-  form.weekIndex = e.detail.value + 1;
+  const idx = Number(e.detail.value);
+  weekIndex.value = Number.isFinite(idx) ? idx : -1;
+  form.weekIndex = weekIndex.value + 1;
 };
 
-// 类型选择
 const onTypeChange = (e) => {
-  typeIndex.value = e.detail.value;
-  form.type = e.detail.value + 1;
+  const idx = Number(e.detail.value);
+  typeIndex.value = Number.isFinite(idx) ? idx : 0;
+  form.type = typeIndex.value + 1;
 };
 
 // 开始时间选择
@@ -182,10 +183,10 @@ const createLesson = () => {
     },
     data: {
       courseId: courseId.value,
-      weekIndex: form.weekIndex,
+      weekIndex: Number(form.weekIndex),
       startTime: form.startTime,
       endTime: form.endTime,
-      type: form.type
+      type: Number(form.type)
     },
     success: (res) => {
       uni.hideLoading();
@@ -206,20 +207,36 @@ const createLesson = () => {
   });
 };
 
+function decodeClassName(raw) {
+  if (!raw) return '班级详情';
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 // 生命周期
 onMounted(() => {
   // 获取页面参数
   const pages = getCurrentPages();
   const currentPage = pages[pages.length - 1];
-  const options = currentPage.options;
+  const options = currentPage.options || {};
 
   courseId.value = parseInt(options.courseId) || 0;
   classId.value = parseInt(options.classId) || 0;
-  className.value = options.className || '班级详情';
+  className.value = decodeClassName(options.className);
+
+  // 从建考页带 preferType=2 时预选「考试课堂」
+  const preferType = parseInt(options.preferType, 10);
+  if (preferType === 2) {
+    typeIndex.value = 1;
+    form.type = 2;
+  }
 
   // 设置导航栏标题
   uni.setNavigationBarTitle({
-    title: '创建课堂'
+    title: preferType === 2 ? '创建考试课堂' : '创建课堂'
   });
 
   // 默认选中当前时间

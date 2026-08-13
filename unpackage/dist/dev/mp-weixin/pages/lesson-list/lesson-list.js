@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const services_examApi = require("../../services/examApi.js");
 if (!Array) {
   const _easycom_page_nav_bar2 = common_vendor.resolveComponent("page-nav-bar");
   _easycom_page_nav_bar2();
@@ -47,7 +48,7 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:129", "请求失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:130", "请求失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
@@ -58,6 +59,19 @@ const _sfc_main = {
         return 0;
       const n = typeof v === "number" ? v : parseInt(String(v), 10);
       return Number.isFinite(n) ? n : 0;
+    }
+    function isExamLesson(item) {
+      const t = Number((item == null ? void 0 : item.type) ?? (item == null ? void 0 : item.lessonType));
+      if (t === 2)
+        return true;
+      return String((item == null ? void 0 : item.typeText) || "").includes("考试");
+    }
+    function lessonTypeText(item) {
+      if (isExamLesson(item))
+        return "考试课堂";
+      if (item == null ? void 0 : item.typeText)
+        return item.typeText;
+      return "普通课堂";
     }
     const goToCreateLesson = () => {
       const name = encodeURIComponent(className.value || "");
@@ -99,26 +113,45 @@ const _sfc_main = {
         },
         fail: (err) => {
           common_vendor.index.hideLoading();
-          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:189", "删除失败:", err);
+          common_vendor.index.__f__("error", "at pages/lesson-list/lesson-list.vue:202", "删除失败:", err);
           common_vendor.index.showToast({ title: "网络连接异常", icon: "none" });
         }
       });
     };
-    const goToExamSetupForLesson = (item) => {
+    const goToExamConfigForLesson = async (item) => {
       const lid = resolveLessonRowId(item);
       if (!lid) {
         common_vendor.index.showToast({ title: "课堂数据缺少编号", icon: "none" });
         return;
       }
       const name = encodeURIComponent(className.value || "");
-      const wid = item.weekIndex != null ? item.weekIndex : 0;
-      common_vendor.index.navigateTo({
-        url: `/pages/exam-setup/exam-setup?lessonId=${lid}&lessonWeek=${wid}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`
-      });
+      const week = item.weekIndex != null ? item.weekIndex : 0;
+      common_vendor.index.showLoading({ title: "加载中..." });
+      try {
+        const data = await services_examApi.fetchExamListByCourse(courseId.value);
+        const list = Array.isArray(data) ? data : [];
+        const exam = list.find((row) => Number(row.lessonId ?? services_examApi.resolveLessonId(row)) === lid);
+        common_vendor.index.hideLoading();
+        if (exam && services_examApi.resolveExamId(exam)) {
+          const title = encodeURIComponent(exam.title || `第${week}周考试`);
+          common_vendor.index.navigateTo({
+            url: `/pages/exam-items/exam-items?examId=${services_examApi.resolveExamId(exam)}&examTitle=${title}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`
+          });
+          return;
+        }
+        common_vendor.index.navigateTo({
+          url: `/pages/exam-create/exam-create?courseId=${courseId.value}&classId=${classId.value}&className=${name}&lessonId=${lid}&lessonWeek=${week}`
+        });
+      } catch (e) {
+        common_vendor.index.hideLoading();
+        setTimeout(() => {
+          common_vendor.index.showToast({ title: e.message || "加载考试失败", icon: "none" });
+        }, 80);
+      }
     };
     const enterLesson = (item) => {
-      if (forExam.value) {
-        goToExamSetupForLesson(item);
+      if (forExam.value || isExamLesson(item)) {
+        goToExamConfigForLesson(item);
         return;
       }
       const lid = resolveLessonRowId(item);
@@ -198,7 +231,7 @@ const _sfc_main = {
         h: common_vendor.f(lessonList.value, (item, idx, i0) => {
           return common_vendor.e({
             a: common_vendor.t(item.weekIndex),
-            b: common_vendor.t(item.typeText || "普通课堂"),
+            b: common_vendor.t(lessonTypeText(item)),
             c: common_vendor.t(item.statusText || "未开始"),
             d: common_vendor.n(getStatusClass(item.status)),
             e: common_vendor.t(formatTime(item.startTime)),
@@ -208,12 +241,12 @@ const _sfc_main = {
           }, !forExam.value ? {
             i: common_vendor.o(($event) => deleteLesson(item), resolveLessonRowId(item) || "lesson-" + idx)
           } : {}, {
-            j: common_vendor.o(($event) => enterLesson(item), resolveLessonRowId(item) || "lesson-" + idx),
-            k: resolveLessonRowId(item) || "lesson-" + idx
+            j: common_vendor.t(isExamLesson(item) || forExam.value ? "配置考核项" : "进入课堂"),
+            k: common_vendor.o(($event) => enterLesson(item), resolveLessonRowId(item) || "lesson-" + idx),
+            l: resolveLessonRowId(item) || "lesson-" + idx
           });
         }),
-        i: !forExam.value,
-        j: common_vendor.t(forExam.value ? "考试设置" : "进入课堂")
+        i: !forExam.value
       } : {});
     };
   }
