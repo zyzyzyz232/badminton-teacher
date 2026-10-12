@@ -1,9 +1,19 @@
+/** 资料字节实际在现网；库里的 pic-video 主机可能是过期 IP。可用 MEDIA_PUBLIC_ORIGIN 覆盖。 */
+const DEFAULT_MEDIA_ORIGIN = 'http://10.112.149.184:48080';
+export function mediaPublicOrigin() {
+    return (process.env.MEDIA_PUBLIC_ORIGIN || DEFAULT_MEDIA_ORIGIN).trim().replace(/\/$/, '');
+}
 export function mediaUrlCandidates(raw) {
     const out = [];
     try {
         const parsed = new URL(raw);
         const path = parsed.pathname;
         const rel = path.replace(/^\//, '');
+        if (path.includes('/pic-video/')) {
+            const rewritten = `${mediaPublicOrigin()}${path}${parsed.search}`;
+            if (rewritten !== raw)
+                out.push(rewritten);
+        }
         out.push(raw);
         if (path.includes('/plan-materials/')) {
             if (!path.includes('/admin-api') && !path.includes('/app-api')) {
@@ -100,7 +110,14 @@ export async function fetchMediaWithFallback(target, token, tenantId = '1', rang
         const h = { ...headers };
         if (range)
             h.Range = range;
-        const res = await fetch(url, { headers: h });
+        let res;
+        try {
+            res = await fetch(url, { headers: h });
+        }
+        catch (e) {
+            lastError = e instanceof Error ? e.message : String(e);
+            continue;
+        }
         const ct = res.headers.get('content-type');
         if ((res.ok || res.status === 206) && isMediaContentType(ct)) {
             return { response: res, tried, lastError: '' };
@@ -110,6 +127,16 @@ export async function fetchMediaWithFallback(target, token, tenantId = '1', rang
         if (!ct?.includes('json') && res.status !== 401 && res.status !== 403 && res.status !== 404) {
             return { response: res, tried, lastError };
         }
+    }
+    if (!last) {
+        return {
+            response: new Response(lastError, {
+                status: 502,
+                headers: { 'content-type': 'text/plain; charset=utf-8' },
+            }),
+            tried,
+            lastError,
+        };
     }
     return { response: last, tried, lastError };
 }

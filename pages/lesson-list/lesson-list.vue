@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="课堂列表" />
     <!-- 顶部班级信息 -->
@@ -58,7 +58,7 @@
               <text>删除</text>
             </view>
           <view class="action-btn enter" @click.stop="enterLesson(item)">
-              <text>{{ isExamLesson(item) || forExam ? '配置考核项' : '进入课堂' }}</text>
+              <text>{{ forExam ? '配置考核项' : '进入课堂' }}</text>
             </view>
           </view>
         </view>
@@ -77,10 +77,10 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
-import { fetchExamListByCourse, resolveExamId, resolveLessonId } from '../../services/examApi.js';
+import { fetchExamListByCourse, resolveExamId } from '../../services/examApi.js';
 
 // 接口基础地址
-const BASE_URL = "http://10.112.189.54:48080/admin-api";
+const BASE_URL = "http://10.112.149.184:48080/admin-api";
 
 // 页面参数
 const courseId = ref(0);
@@ -217,12 +217,11 @@ const goToExamConfigForLesson = async (item) => {
   try {
     const data = await fetchExamListByCourse(courseId.value);
     const list = Array.isArray(data) ? data : [];
-    const exam = list.find((row) => Number(row.lessonId ?? resolveLessonId(row)) === lid);
+    const exam = list.find((row) => Number(row.lessonId) === lid);
     uni.hideLoading();
     if (exam && resolveExamId(exam)) {
-      const title = encodeURIComponent(exam.title || `第${week}周考试`);
       uni.navigateTo({
-        url: `/pages/exam-items/exam-items?examId=${resolveExamId(exam)}&examTitle=${title}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`,
+        url: `/pages/exam-create/exam-create?courseId=${courseId.value}&classId=${classId.value}&className=${name}&examId=${resolveExamId(exam)}`,
       });
       return;
     }
@@ -237,9 +236,9 @@ const goToExamConfigForLesson = async (item) => {
   }
 };
 
-// 普通课堂进训练计划；考试课堂进考核项配置
+// 班级详情「上课」进入：一律选训练计划。仅 forExam 入口才去配置考核项。
 const enterLesson = (item) => {
-  if (forExam.value || isExamLesson(item)) {
+  if (forExam.value) {
     goToExamConfigForLesson(item);
     return;
   }

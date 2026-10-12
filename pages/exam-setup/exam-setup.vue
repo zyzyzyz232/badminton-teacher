@@ -81,7 +81,7 @@ const venueList = ref([
 
 const examTypes = [
   { id: 'landing', title: '落点检测', desc: '羽毛球落点智能检测' },
-  { id: 'action_recognition', title: '动作识别', desc: '技术动作识别与评测' }
+  { id: 'action_recognition', title: '动作分析', desc: '连续动作分析与评测' }
 ];
 
 const courseId = ref(0);

@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view class="page" :style="pageStyle">
 		<page-nav-bar title="训练计划" :show-back="false" />
 		<view class="header-bar">
 			<text class="sub">管理训练计划与课中项目顺序</text>
@@ -28,7 +28,7 @@
 			</view>
 		</scroll-view>
 
-		<view class="fab-wrap">
+		<view class="fab-wrap" :style="fabWrapStyle">
 			<button class="new-btn" type="primary" @click="openNewArrange">＋ 新建训练计划</button>
 		</view>
 	</view>
@@ -39,8 +39,44 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { fetchTrainingPlanList, deleteTeachingPlan } from '../../services/trainingPlanApi.js'
 
+/** 底部固定栏内容高度（padding + 按钮），与 .fab-wrap / .new-btn 样式一致 */
+const FAB_BAR_HEIGHT_RPX = 120
+
 const planList = ref([])
 const loading = ref(false)
+const fabWrapStyle = ref({ bottom: '0px' })
+const pageStyle = ref({ paddingBottom: `${FAB_BAR_HEIGHT_RPX}rpx` })
+
+/** 屏幕底边到页面可视区域底边的距离（tabBar + 安全区等），避免固定栏被遮挡 */
+function getBottomInsetPx() {
+	try {
+		const sys = uni.getSystemInfoSync()
+		const statusBar = sys.statusBarHeight || 0
+		const belowWindow = sys.screenHeight - sys.windowHeight - statusBar
+		if (belowWindow > 20) {
+			return belowWindow
+		}
+		const uniPlatform = sys.uniPlatform || ''
+		if (uniPlatform === 'mp-weixin') {
+			return 0
+		}
+		const tabBarPx = 50
+		const homeIndicatorPx = sys.safeArea
+			? Math.max(0, sys.screenHeight - sys.safeArea.bottom)
+			: (sys.safeAreaInsets?.bottom ?? 0)
+		return tabBarPx + homeIndicatorPx
+	} catch {
+		return 50
+	}
+}
+
+function syncBottomLayout() {
+	const insetPx = getBottomInsetPx()
+	fabWrapStyle.value = { bottom: `${insetPx}px` }
+	pageStyle.value = {
+		paddingBottom: `calc(${FAB_BAR_HEIGHT_RPX}rpx + ${insetPx}px)`,
+	}
+}
 
 async function refresh() {
 	loading.value = true
@@ -93,19 +129,19 @@ function openNewArrange() {
 }
 
 onShow(() => {
+	syncBottomLayout()
 	refresh()
 })
 </script>
 
 <style scoped>
 .page {
-	min-height: 100vh;
+	height: 100vh;
 	background: #f5f7fa;
 	display: flex;
 	flex-direction: column;
-	/* 底部按钮区 + 原生 tabBar（约 100rpx） */
-	padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
 	box-sizing: border-box;
+	overflow: hidden;
 }
 
 .header-bar {
@@ -129,9 +165,9 @@ onShow(() => {
 
 .list-wrap {
 	flex: 1;
+	min-height: 0;
 	padding: 24rpx;
 	box-sizing: border-box;
-	max-height: calc(100vh - 200rpx);
 }
 
 .plan-card {
@@ -214,11 +250,11 @@ onShow(() => {
 	position: fixed;
 	left: 0;
 	right: 0;
-	/* 上移至 tabBar 上方（高度约 100rpx） */
-	bottom: calc(100rpx + env(safe-area-inset-bottom));
-	padding: 16rpx 28rpx 16rpx;
+	z-index: 1000;
+	padding: 16rpx 28rpx;
 	background: #fff;
 	box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+	box-sizing: border-box;
 }
 
 .new-btn {

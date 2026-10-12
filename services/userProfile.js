@@ -1,6 +1,6 @@
-import { getTeacherIdFromStorage } from './trainingPlanApi.js'
+﻿import { getTeacherIdFromStorage } from './trainingPlanApi.js'
 
-const PROFILE_URL = 'http://10.112.189.54:48080/admin-api/system/user/profile/get'
+const PROFILE_URL = 'http://10.112.149.184:48080/admin-api/system/user/profile/get'
 
 /**
  * 拉取当前登录用户资料并写入 userInfo 本地缓存

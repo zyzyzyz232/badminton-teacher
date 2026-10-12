@@ -1,6 +1,6 @@
 # Relay server（小程序 ↔ gym_screen 大屏）
 
-独立 WebSocket 中继：房间、`SessionState`、每秒 tick（暂停时不推进总/块计时）、`setPlan` 与遥控命令广播给房间内所有客户端。
+独立 WebSocket 中继：房间、`SessionState`、每秒 tick（暂停时不推进总/块计时）、`setPlan` 与考试命令广播给房间内所有客户端。
 
 ## 启动
 
@@ -39,6 +39,29 @@ npm start
 `{"type":"command","name":"setPlan","payload":{"plan":[{"id":"1","title":"热身","durationMin":5,"videoUrl":"https://..."}],"currentItemId":"1","mediaBearerToken":"<教师端 accessToken>"}}`
 
 `mediaBearerToken` 用于中继 **`GET /media-proxy?roomId=1001&url=<编码后的视频地址>`** 代拉需登录的视频（大屏 `<video>` 无法自带 Authorization 头）。
+
+### 考试模式（阶段二）
+
+`SessionState` 增加 `mode`（默认 `training`）、`examPhase`、`examItems`、`examinees` 等。考试态 **不推进** 训练用 `sessionElapsedSec`。
+
+| name | payload | 效果 |
+|------|---------|------|
+| `setExamBriefing` | `{ examId?, examTitle, items[], currentItemId?, mediaBearerToken?, mediaTenantId? }` | `mode=exam`，`examPhase=briefing` |
+| `setExamItem` | `{ id }` | briefing 下切换当前资料项 |
+| `setExamVideoPlaying` | `{ playing }` | 控制 briefing 播片 |
+| `startExam` | `{ examinees[], currentExamineeId? }` | `examPhase=running`，停播 |
+| `setCurrentExaminee` | `{ classStudentId }` | 更新当前考生（缺考学员不可点选） |
+| `advanceExaminee` | `{}` | 当前 `done`，下一名可考学员 `testing`（跳过 done/absent） |
+| `markExamineeAbsent` | `{ classStudentId }` | 该生 `absent`；若是当前考生则切下一名可考 |
+| `restartExaminee` | `{ classStudentId }` | 该生 `testing` 并设为当前 |
+| `finishExam` | `{}` | `examPhase=finished` |
+| `exitExamMode` | `{}` | 回到 `mode=training` 初始态（保留媒体令牌） |
+
+当 `mode === 'exam'` 时，`setPlan` / `pause` / `resume` / `setCurrentItem` / `setItemDuration` / `resetBlockTimer` / `toggleVideo` / `setVideoPlaying` **拒绝**：
+
+`{ "type": "error", "code": "mode_conflict", "message": "当前为考试模式，请先结束考试" }`
+
+状态不变、不广播。`setMediaAuth` 考试态仍可用。验证：`npm run verify:exam`。
 
 ## 局域网与小程序
 

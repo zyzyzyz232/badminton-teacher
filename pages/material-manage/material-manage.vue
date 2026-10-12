@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="container">
     <page-nav-bar title="资料管理" fallback-url="/pages/training-plan/training-plan" />
 
@@ -151,7 +151,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
-const API_BASE = 'http://10.112.189.54:48080/admin-api'
+const API_BASE = 'http://10.112.149.184:48080/admin-api'
 
 const statusBarHeight = ref(0)
 try {

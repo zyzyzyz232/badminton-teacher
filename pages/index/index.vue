@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="登录注册" :show-back="false" />
     <view class="top-bg">
@@ -174,7 +174,7 @@ const handleSubmit = () => {
   uni.showLoading({ title: isRegister.value ? '注册中...' : '登录中...' });
 
   // 新接口配置
-  const BASE_URL = "http://10.112.189.54:48080/admin-api/system/auth";
+  const BASE_URL = "http://10.112.149.184:48080/admin-api/system/auth";
   const requestUrl = isRegister.value ? `${BASE_URL}/teacher-register` : `${BASE_URL}/login`;
 
   // 构建参数

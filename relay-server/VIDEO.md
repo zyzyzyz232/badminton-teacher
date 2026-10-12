@@ -1,4 +1,4 @@
-# 视频无法播放排查
+﻿# 视频无法播放排查
 
 ## 现象
 
@@ -11,7 +11,7 @@
 后台返回的是 **CommonResult JSON**（例如 `code:404 请求地址不存在`），不是 `video/mp4` 流。  
 当前 `videoUrl` 形如：
 
-`http://10.112.189.54:48080/plan-materials/videos/...`
+`http://10.112.149.184:48080/plan-materials/videos/...`
 
 经测试，该路径在 48080 上 **没有可用的文件下载接口**（带 Token 仍返回 JSON 404）。
 
@@ -35,7 +35,7 @@
 ```bash
 # 应返回 video/mp4 或 application/octet-stream，不能是 application/json
 curl.exe -H "Authorization: Bearer <token>" -H "Tenant-Id: 1" ^
-  "http://10.112.189.54:48080/plan-materials/videos/....mp4"
+  "http://10.112.149.184:48080/plan-materials/videos/....mp4"
 
 cd relay-server
 npm run test:media -- "<videoUrl>" <token>

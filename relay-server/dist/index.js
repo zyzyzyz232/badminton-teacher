@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { applyCommand, createInitialState, parseWireCommand, tickState, } from './stateLogic.js';
+import { applyCommand, createInitialState, examCommandPhaseError, isTrainingOnlyCommand, parseWireCommand, tickState, } from './stateLogic.js';
 import { describeUpstreamFailure, fetchMediaWithFallback, isMediaContentType } from './mediaProxy.js';
+import { buildRelayWsUrls, getLanIPv4Addresses } from './lanHosts.js';
 const PORT = Number(process.env.PORT ?? 3456);
 const RELAY_PROTOCOL = 2;
 /** 用于确认机房已部署本仓库完整构建（非旧版 WS） */
-const RELAY_BUILD_ID = 'relay-2026-v2';
+const RELAY_BUILD_ID = 'relay-2026-exam-v2';
 function requestPath(req) {
     const raw = req.url || '/';
     return raw.split('?')[0] || '/';
@@ -200,6 +201,19 @@ function handleCommand(ws, msg) {
         send(ws, { type: 'error', code: 'bad_command', message: '未知命令' });
         return;
     }
+    if (room.state.mode === 'exam' && isTrainingOnlyCommand(cmd.kind)) {
+        send(ws, {
+            type: 'error',
+            code: 'mode_conflict',
+            message: '当前为考试模式，请先结束考试',
+        });
+        return;
+    }
+    const phaseErr = examCommandPhaseError(room.state, cmd);
+    if (phaseErr) {
+        send(ws, { type: 'error', code: phaseErr.code, message: phaseErr.message });
+        return;
+    }
     room.state = applyCommand(room.state, cmd);
     broadcastRoom(room);
 }
@@ -305,6 +319,7 @@ const server = createServer((req, res) => {
     }
     const path = requestPath(req);
     if (path === '/relay-info') {
+        const lanHosts = getLanIPv4Addresses();
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({
             protocol: RELAY_PROTOCOL,
@@ -312,6 +327,8 @@ const server = createServer((req, res) => {
             pinnedRoomId: PINNED_ROOM_ID,
             pinnedToken: PINNED_TOKEN,
             port: PORT,
+            lanHosts,
+            wsUrls: buildRelayWsUrls(PORT),
         }));
         return;
     }

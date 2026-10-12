@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="羽毛球教学" :show-back="false" />
     <!-- 顶部欢迎区（简洁） -->
@@ -76,7 +76,7 @@ import { ensureTeacherSession } from '../../services/userProfile.js';
 import { getTeacherNameFromStorage } from '../../services/trainingPlanApi.js';
 
 // 接口基础地址
-const BASE_URL = "http://10.112.189.54:48080/admin-api";
+const BASE_URL = "http://10.112.149.184:48080/admin-api";
 
 // 数据定义
 const teacherName = ref('');

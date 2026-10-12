@@ -46,8 +46,8 @@
           </view>
           <view class="card-actions">
             <view class="action-btn" @click="goEdit(item)">编辑</view>
-            <view class="action-btn" @click="goItems(item)">考核项</view>
             <view class="action-btn enter" @click="enterExamRoom(item)">进入考场</view>
+            <view class="action-btn" @click="goResults(item)">成绩</view>
             <view class="action-btn danger" @click="confirmDelete(item)">删除</view>
           </view>
         </view>
@@ -70,6 +70,7 @@ import {
   resolveExamId,
   calcScoreRatioUsage,
   validateExamReadyForRoom,
+  EXAM_RESULTS_STORAGE_KEYS,
 } from '../../services/examApi.js'
 
 const courseId = ref(0)
@@ -128,17 +129,20 @@ function goEdit(item) {
   })
 }
 
-function goItems(item) {
+function goResults(item) {
   const id = resolveExamId(item)
   if (!id) {
     uni.showToast({ title: '考试编号无效', icon: 'none' })
     return
   }
-  const title = encodeURIComponent(item.title || '考核项')
-  const name = encodeURIComponent(className.value || '')
-  uni.navigateTo({
-    url: `/pages/exam-items/exam-items?examId=${id}&examTitle=${title}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`,
-  })
+  try {
+    uni.setStorageSync(EXAM_RESULTS_STORAGE_KEYS.courseId, courseId.value)
+    uni.setStorageSync(EXAM_RESULTS_STORAGE_KEYS.examId, id)
+    uni.setStorageSync(EXAM_RESULTS_STORAGE_KEYS.classId, classId.value)
+  } catch {
+    /* ignore */
+  }
+  uni.switchTab({ url: '/pages/exam-results/exam-results' })
 }
 
 async function enterExamRoom(item) {
@@ -155,7 +159,11 @@ async function enterExamRoom(item) {
       uni.showToast({ title: result.reason || '配置未完成', icon: 'none', duration: 2500 })
       return
     }
-    uni.showToast({ title: '考场功能将在阶段二开放', icon: 'none', duration: 2500 })
+    const title = encodeURIComponent(item.title || '考试')
+    const name = encodeURIComponent(className.value || '')
+    uni.navigateTo({
+      url: `/pages/exam-room/exam-room?examId=${id}&examTitle=${title}&courseId=${courseId.value}&classId=${classId.value}&className=${name}`,
+    })
   } catch (e) {
     uni.hideLoading()
     uni.showToast({ title: e.message || '校验失败', icon: 'none' })

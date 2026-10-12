@@ -13,6 +13,22 @@
 <script setup>
 import { ref } from 'vue'
 
+function readStatusBarHeight() {
+	try {
+		if (typeof uni.getWindowInfo === 'function') {
+			const win = uni.getWindowInfo()
+			if (win && win.statusBarHeight != null) return win.statusBarHeight
+		}
+	} catch {
+		/* fall through */
+	}
+	try {
+		return uni.getSystemInfoSync().statusBarHeight || 0
+	} catch {
+		return 0
+	}
+}
+
 const props = defineProps({
 	title: {
 		type: String,
@@ -28,17 +44,13 @@ const props = defineProps({
 	},
 })
 
-const statusBarHeight = ref(0)
-try {
-	statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 0
-} catch {
-	statusBarHeight.value = 0
-}
+const statusBarHeight = ref(readStatusBarHeight())
 
 const TAB_PATHS = new Set([
 	'/pages/home/home',
 	'/pages/my-courses/my-courses',
 	'/pages/training-plan/training-plan',
+	'/pages/exam-results/exam-results',
 	'/pages/me/me',
 ])
 

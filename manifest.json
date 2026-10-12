@@ -54,7 +54,15 @@
         "setting" : {
             "urlCheck" : false
         },
-        "usingComponents" : true
+        "usingComponents" : true,
+        "permission" : {
+            "scope.camera" : {
+                "desc" : "用于考核动作分析录像"
+            },
+            "scope.record" : {
+                "desc" : "用于考核动作分析录像"
+            }
+        }
     },
     "mp-alipay" : {
         "usingComponents" : true

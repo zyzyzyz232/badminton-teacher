@@ -70,7 +70,7 @@
             </view>
           </view>
         </view>
-        <view class="upload-btn" @click="chooseAndUpload">
+        <view class="upload-btn" @click="chooseFile">
           <text>+ 上传{{ uploadType === 1 ? '图片' : '视频' }}</text>
         </view>
 
@@ -103,6 +103,37 @@
       </view>
       <view v-else class="hint-after-create">
         <text>创建成功后可在本页选填教学资料</text>
+      </view>
+    </view>
+
+    <view v-if="showUploadModal" class="modal-mask" @click="closeUploadModal">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <text class="modal-title">上传资料</text>
+          <text class="modal-close" @click="closeUploadModal">×</text>
+        </view>
+        <view class="modal-body">
+          <view v-if="tempFilePath" class="file-preview">
+            <image v-if="uploadType === 1" :src="tempFilePath" mode="aspectFit" />
+            <video v-else :src="tempFilePath" controls />
+          </view>
+          <view class="form-item">
+            <text class="form-label">标题（可选）</text>
+            <input class="form-input" v-model="uploadForm.title" placeholder="如：发球动作示范" />
+          </view>
+          <view class="form-item">
+            <text class="form-label">描述（可选）</text>
+            <textarea
+              class="form-textarea"
+              v-model="uploadForm.description"
+              placeholder="选填，大屏讲解时显示"
+            />
+          </view>
+        </view>
+        <view class="modal-footer">
+          <button class="btn-cancel" @click="closeUploadModal">取消</button>
+          <button class="btn-confirm" @click="confirmUpload">上传</button>
+        </view>
       </view>
     </view>
   </view>
@@ -142,12 +173,18 @@ const form = reactive({
 const maxScoreText = ref('100')
 const weightText = ref('')
 const sortText = ref('0')
-const algoOptions = ['动作识别', '落点检测']
+const algoOptions = ['动作分析', '落点检测']
 const materialTypeOptions = ['图片', '视频']
 const uploadType = ref(1)
 const materialList = ref([])
 const siblingItems = ref([])
 const saving = ref(false)
+const showUploadModal = ref(false)
+const tempFilePath = ref('')
+const uploadForm = reactive({
+  title: '',
+  description: '',
+})
 
 const othersWeight = computed(() =>
   calcItemWeightSum(siblingItems.value, isEdit.value ? examItemId.value : 0)
@@ -306,7 +343,14 @@ async function doSave(itemName, maxScore, weight) {
   }
 }
 
-function chooseAndUpload() {
+function closeUploadModal() {
+  showUploadModal.value = false
+  tempFilePath.value = ''
+  uploadForm.title = ''
+  uploadForm.description = ''
+}
+
+function chooseFile() {
   if (!examItemId.value) {
     uni.showToast({ title: '请先保存考核项', icon: 'none' })
     return
@@ -315,20 +359,33 @@ function chooseAndUpload() {
     uni.chooseImage({
       count: 1,
       success: (res) => {
-        doUpload(res.tempFilePaths[0])
+        tempFilePath.value = res.tempFilePaths[0] || ''
+        uploadForm.title = ''
+        uploadForm.description = ''
+        showUploadModal.value = true
       },
     })
   } else {
     uni.chooseVideo({
       success: (res) => {
-        doUpload(res.tempFilePath)
+        tempFilePath.value = res.tempFilePath || ''
+        uploadForm.title = ''
+        uploadForm.description = ''
+        showUploadModal.value = true
       },
     })
   }
 }
 
-async function doUpload(filePath) {
-  if (!filePath) return
+async function confirmUpload() {
+  if (!tempFilePath.value) {
+    uni.showToast({ title: '请选择文件', icon: 'none' })
+    return
+  }
+  const filePath = tempFilePath.value
+  const title = (uploadForm.title || '').trim()
+  const description = (uploadForm.description || '').trim()
+  showUploadModal.value = false
   uni.showLoading({ title: '上传中...', mask: true })
   let errMsg = ''
   try {
@@ -336,13 +393,16 @@ async function doUpload(filePath) {
       filePath,
       examItemId: examItemId.value,
       materialType: uploadType.value,
-      title: '',
-      description: '',
+      title,
+      description,
     })
   } catch (e) {
     errMsg = e.message || '上传失败'
   } finally {
     uni.hideLoading()
+    tempFilePath.value = ''
+    uploadForm.title = ''
+    uploadForm.description = ''
   }
   if (errMsg) {
     setTimeout(() => {
@@ -628,5 +688,109 @@ onLoad(async (options) => {
   color: #999;
   text-align: center;
   padding: 20rpx;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 140rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  padding: 20rpx 28rpx;
+  font-size: 28rpx;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 20rpx;
+  width: 86%;
+  max-width: 640rpx;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.modal-close {
+  font-size: 48rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 30rpx;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+
+.file-preview {
+  width: 100%;
+  height: 280rpx;
+  background: #f5f7fa;
+  border-radius: 12rpx;
+  margin-bottom: 28rpx;
+  overflow: hidden;
+}
+
+.file-preview image,
+.file-preview video {
+  width: 100%;
+  height: 100%;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 30rpx 30rpx;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 30rpx;
+  border-radius: 40rpx;
+  border: none;
+
+  &::after {
+    display: none;
+  }
+}
+
+.btn-cancel {
+  background: #f5f7fa;
+  color: #666;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #07c160, #0ebf8c);
+  color: #fff;
 }
 </style>

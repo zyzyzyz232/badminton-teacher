@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 训练计划 / 安排相关接口（admin-api）
  *
  * 约定：
@@ -13,7 +13,7 @@
  */
 
 /** 教学相关接口（admin-api 网关） */
-const TEACHING_API_BASE = 'http://10.112.189.54:48080/admin-api'
+const TEACHING_API_BASE = 'http://10.112.149.184:48080/admin-api'
 
 /** 创建训练项目链路调试（控制台 + 真机调试器） */
 function debugTrainingPlanApi(tag, detail) {

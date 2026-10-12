@@ -1,4 +1,4 @@
----
+﻿---
 title: 默认模块
 language_tabs:
   - shell: Shell
@@ -23,7 +23,7 @@ generator: "@tarslib/widdershins v4.0.30"
 
 Base URLs:
 
-* <a href="10.112.189.54:48080/admin-api">本地后台端请求: 10.112.189.54:48080/admin-api</a>
+* <a href="10.112.149.184:48080/admin-api">本地后台端请求: 10.112.149.184:48080/admin-api</a>
 
 * <a href="10.101.166.129:8000">动作分析: 10.101.166.129:8000</a>
 

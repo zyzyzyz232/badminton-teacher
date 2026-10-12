@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page">
     <page-nav-bar title="大屏遥控" />
     <!-- 顶部状态栏 -->
@@ -12,6 +12,32 @@
 
     <!-- 未连接时显示连接按钮 -->
     <view v-if="!socketJoined" class="connect-section">
+      <view class="conn-form">
+        <text class="conn-form-title">中继连接</text>
+        <text class="conn-form-hint">{{ relayHint }}</text>
+        <view class="conn-field">
+          <text class="conn-label">WS 地址</text>
+          <input
+            v-model="relayWsInput"
+            class="conn-input"
+            placeholder="如 10.21.176.161 或 ws://IP:3456"
+            :disabled="connecting"
+            @blur="applyRelayWsInput"
+          />
+        </view>
+        <view class="conn-meta">
+          <text>房间 {{ roomId }} · 令牌 {{ token }}</text>
+        </view>
+        <view v-if="relayProbeHint" class="conn-probe">{{ relayProbeHint }}</view>
+        <view class="conn-quick">
+          <button v-if="isDevtools" class="btn-small" :disabled="connecting" @click="useLocalRelay">
+            本机 127.0.0.1
+          </button>
+          <button class="btn-small" :disabled="probingRelay || connecting" @click="probeRelayServer">
+            {{ probingRelay ? '探测中…' : '探测中继' }}
+          </button>
+        </view>
+      </view>
       <view class="connect-icon">
         <text class="icon-rocket">🚀</text>
       </view>
@@ -124,18 +150,28 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { isH5Client } from '../../utils/platform.js'
+import { ref, computed } from 'vue'
+import { onLoad, onReady, onUnload } from '@dcloudio/uni-app'
+import { isH5Client, isMpWeixinDevtools, isMpWeixinDevice } from '../../utils/platform.js'
 import {
   resolveRelayWsUrl,
+  normalizeRelayWsUrl,
+  resolveRelayHttpUrl,
+  pickRelayWsUrlsFromInfo,
+  pickRelayWsForMobileDevice,
   RELAY_ROOM_ID_DEFAULT,
   RELAY_TOKEN_DEFAULT,
+  RELAY_WS_LOCAL,
   RELAY_STORAGE_KEYS,
 } from '../../utils/relayConfig.js'
 
-const BASE_URL = 'http://10.112.189.54:48080/admin-api'
+const BASE_URL = 'http://10.112.149.184:48080/admin-api'
 
 const relayWs = ref(resolveRelayWsUrl())
+const relayWsInput = ref('')
+const relayProbeHint = ref('')
+const probingRelay = ref(false)
+const isDevtools = isMpWeixinDevtools()
 const roomId = ref(RELAY_ROOM_ID_DEFAULT)
 const token = ref(RELAY_TOKEN_DEFAULT)
 const connecting = ref(false)
@@ -145,6 +181,25 @@ const statusLine = ref('')
 const showDebug = ref(false)
 const debugLogs = ref([])
 const logScrollTop = ref(0)
+
+/** 页面是否仍存活；重连序号用于忽略过期的 socket 回调 */
+let pageActive = true
+let connectSeq = 0
+/** @type {WechatMiniprogram.SocketTask | null} */
+let socketTask = null
+
+function closeSocketTask() {
+  const task = socketTask
+  socketTask = null
+  if (!task) return
+  try {
+    task.close({
+      fail: () => {},
+    })
+  } catch {
+    /* noop */
+  }
+}
 
 const connectionPhase = computed(() => {
   if (socketJoined.value) return 'joined'
@@ -164,6 +219,16 @@ const phaseLabel = computed(() => {
 })
 
 const phaseClass = computed(() => `phase-${connectionPhase.value}`)
+
+const relayHint = computed(() => {
+  if (isDevtools) {
+    return '开发者工具：默认连本机 127.0.0.1:3456（relay-server 须在本机运行）'
+  }
+  if (isMpWeixinDevice()) {
+    return '真机：填运行 relay 的电脑局域网 IP，点「探测」确认后再连接'
+  }
+  return '填写运行 relay-server 的地址，与大屏、中继须一致'
+})
 
 function pad2(n) {
   return String(n).padStart(2, '0')
@@ -208,23 +273,81 @@ function normalizeRoomFields() {
 
 function loadRelayCredentials() {
   const savedWs = uni.getStorageSync(RELAY_STORAGE_KEYS.ws)
-  const savedRoom = uni.getStorageSync(RELAY_STORAGE_KEYS.roomId)
-  const savedToken = uni.getStorageSync(RELAY_STORAGE_KEYS.token)
-  relayWs.value = resolveRelayWsUrl(typeof savedWs === 'string' ? savedWs : '')
-  roomId.value = normalizeDigits4(
-    typeof savedRoom === 'string' && savedRoom ? savedRoom : RELAY_ROOM_ID_DEFAULT,
-  )
-  token.value = normalizeDigits4(
-    typeof savedToken === 'string' && savedToken ? savedToken : RELAY_TOKEN_DEFAULT,
-  )
+  relayWs.value = resolveRelayWsUrl({ stored: typeof savedWs === 'string' ? savedWs : '' })
+  relayWsInput.value = relayWs.value
+  roomId.value = RELAY_ROOM_ID_DEFAULT
+  token.value = RELAY_TOKEN_DEFAULT
+}
+
+function applyRelayWsInput() {
+  const normalized = normalizeRelayWsUrl(relayWsInput.value)
+  if (!normalized) {
+    uni.showToast({ title: 'WS 地址格式无效', icon: 'none' })
+    relayWsInput.value = relayWs.value
+    return
+  }
+  relayWs.value = normalized
+  relayWsInput.value = normalized
+  persistRelayCredentials()
+}
+
+function useLocalRelay() {
+  relayWs.value = RELAY_WS_LOCAL
+  relayWsInput.value = RELAY_WS_LOCAL
+  relayProbeHint.value = '已切换为本机中继'
+  persistRelayCredentials()
+}
+
+function probeRelayServer() {
+  applyRelayWsInput()
+  const httpUrl = resolveRelayHttpUrl(relayWs.value)
+  if (!httpUrl) {
+    uni.showToast({ title: '请先填写 WS 地址', icon: 'none' })
+    return
+  }
+  probingRelay.value = true
+  relayProbeHint.value = ''
+  uni.request({
+    url: `${httpUrl}/relay-info`,
+    method: 'GET',
+    timeout: 8000,
+    success: (res) => {
+      if (res.statusCode !== 200 || !res.data) {
+        relayProbeHint.value = `探测失败 HTTP ${res.statusCode}`
+        uni.showToast({ title: '中继不可达', icon: 'none' })
+        return
+      }
+      const info = res.data
+      const urls = pickRelayWsUrlsFromInfo(info)
+      const build = info.build || '?'
+      const protocol = info.protocol ?? '?'
+      if (isMpWeixinDevice() && urls.length) {
+        const picked = pickRelayWsForMobileDevice(urls)
+        if (picked && picked !== relayWs.value) {
+          relayWs.value = picked
+          relayWsInput.value = picked
+          persistRelayCredentials()
+        }
+      }
+      relayProbeHint.value = `OK ${build} · v${protocol} · ${urls.slice(0, 2).join(' / ') || httpUrl}`
+      pushLog('ok', 'PROBE', relayProbeHint.value, info)
+      uni.showToast({ title: '中继可用', icon: 'success' })
+    },
+    fail: (err) => {
+      relayProbeHint.value = '探测失败：请确认 IP、防火墙、relay 已启动'
+      pushLog('error', 'PROBE', err?.errMsg || '探测失败')
+      uni.showToast({ title: '无法访问中继', icon: 'none' })
+    },
+    complete: () => {
+      probingRelay.value = false
+    },
+  })
 }
 
 function persistRelayCredentials() {
   try {
     const ws = relayWs.value.trim()
     if (ws) uni.setStorageSync(RELAY_STORAGE_KEYS.ws, ws)
-    if (DIGITS4.test(roomId.value)) uni.setStorageSync(RELAY_STORAGE_KEYS.roomId, roomId.value)
-    if (DIGITS4.test(token.value)) uni.setStorageSync(RELAY_STORAGE_KEYS.token, token.value)
   } catch {
     /* noop */
   }
@@ -355,15 +478,32 @@ async function fetchPlanPayloadForScreen(pid) {
   return plan
 }
 
-function sendRaw(obj) {
-  pushLog('out', 'SEND', obj.type || 'raw', obj)
-  try {
-    uni.sendSocketMessage({ data: JSON.stringify(obj) })
-  } catch (e) {
-    statusLine.value = '发送失败'
-    pushLog('error', 'SEND', '发送失败', e?.message || String(e))
-    console.error(e)
+function sendRaw(obj, opts = {}) {
+  const { requireJoined = false } = opts
+  if (!pageActive) return false
+  if (!socketTask || !socketOpen.value) {
+    pushLog('warn', 'SEND', 'WebSocket 未就绪，跳过', obj.type || obj.name)
+    return false
   }
+  if (requireJoined && !socketJoined.value) {
+    pushLog('warn', 'SEND', '未加入房间，跳过', obj.type || obj.name)
+    return false
+  }
+  pushLog('out', 'SEND', obj.type || 'raw', obj)
+  socketTask.send({
+    data: JSON.stringify(obj),
+    fail: (err) => {
+      const msg = err?.errMsg || '发送失败'
+      pushLog('error', 'SEND', msg, obj.type || obj.name)
+      if (msg.includes('not OPEN')) {
+        socketOpen.value = false
+        socketJoined.value = false
+        connecting.value = false
+        statusLine.value = '连接已断开'
+      }
+    },
+  })
+  return true
 }
 
 function sendPingState() {
@@ -371,7 +511,10 @@ function sendPingState() {
 }
 
 function sendCmd(name, payload) {
-  sendRaw({ type: 'command', name, payload })
+  const ok = sendRaw({ type: 'command', name, payload }, { requireJoined: true })
+  if (!ok) {
+    uni.showToast({ title: '未连接大屏', icon: 'none' })
+  }
 }
 
 function onSocketMessageHandler(res) {
@@ -386,10 +529,14 @@ function onSocketMessageHandler(res) {
       persistRelayCredentials()
       const authTok = getToken()
       if (authTok) {
-        sendCmd('setMediaAuth', { token: authTok, tenantId: '1' })
+        sendRaw({ type: 'command', name: 'setMediaAuth', payload: { token: authTok, tenantId: '1' } }, { requireJoined: true })
         pushLog('out', 'setMediaAuth', '已同步视频访问令牌')
       }
-      void pushSetPlan()
+      setTimeout(() => {
+        if (pageActive && socketJoined.value && socketOpen.value) {
+          void pushSetPlan()
+        }
+      }, 80)
       return
     }
     if (msg.type === 'state' && msg.state) {
@@ -434,19 +581,25 @@ function onSocketMessageHandler(res) {
   }
 }
 
-function clearSocketListeners() {
-  try {
-    uni.offSocketOpen()
-    uni.offSocketMessage()
-    uni.offSocketError()
-    uni.offSocketClose()
-  } catch {
-    /* noop */
-  }
-}
+function startConnect(seq) {
+  closeSocketTask()
 
-function bindSocketListeners() {
-  uni.onSocketOpen(() => {
+  const task = uni.connectSocket({
+    url: relayWs.value.trim(),
+    multiple: true,
+    fail: (err) => {
+      if (!pageActive || seq !== connectSeq) return
+      connecting.value = false
+      socketOpen.value = false
+      statusLine.value = '无法发起连接'
+      pushLog('error', 'CONNECT', '无法发起连接', err?.errMsg || err)
+      console.error(err)
+    },
+  })
+  socketTask = task
+
+  task.onOpen(() => {
+    if (!pageActive || seq !== connectSeq) return
     socketOpen.value = true
     pushLog('ok', 'OPEN', relayWs.value.trim())
     sendRaw({
@@ -456,14 +609,21 @@ function bindSocketListeners() {
       token: token.value.trim(),
     })
   })
-  uni.onSocketMessage(onSocketMessageHandler)
-  uni.onSocketError((err) => {
+  task.onMessage((res) => {
+    if (!pageActive || seq !== connectSeq) return
+    onSocketMessageHandler(res)
+  })
+  task.onError((err) => {
+    if (!pageActive || seq !== connectSeq) return
     statusLine.value = 'WebSocket 错误'
     connecting.value = false
     socketOpen.value = false
+    socketJoined.value = false
     pushLog('error', 'WS_ERR', 'WebSocket 错误', err?.errMsg || err)
   })
-  uni.onSocketClose((res) => {
+  task.onClose((res) => {
+    if (!pageActive || seq !== connectSeq) return
+    if (socketTask === task) socketTask = null
     socketJoined.value = false
     connecting.value = false
     socketOpen.value = false
@@ -474,6 +634,7 @@ function bindSocketListeners() {
 
 function handleConnect() {
   if (socketJoined.value) return
+  applyRelayWsInput()
   normalizeRoomFields()
   if (!relayWs.value.trim()) {
     uni.showToast({ title: '请填写 WS 地址', icon: 'none' })
@@ -487,27 +648,17 @@ function handleConnect() {
   statusLine.value = ''
   connecting.value = true
   socketOpen.value = false
+  socketJoined.value = false
+  const seq = ++connectSeq
   pushLog('info', 'CONNECT', relayWs.value.trim(), {
     roomId: roomId.value,
     token: token.value,
   })
-  try {
-    uni.closeSocket()
-  } catch {
-    /* noop */
-  }
-  clearSocketListeners()
-  bindSocketListeners()
-  uni.connectSocket({
-    url: relayWs.value.trim(),
-    fail: (err) => {
-      connecting.value = false
-      socketOpen.value = false
-      statusLine.value = '无法发起连接'
-      pushLog('error', 'CONNECT', '无法发起连接', err?.errMsg || err)
-      console.error(err)
-    },
-  })
+  closeSocketTask()
+  setTimeout(() => {
+    if (!pageActive || seq !== connectSeq) return
+    startConnect(seq)
+  }, 80)
 }
 
 async function pushSetPlan() {
@@ -523,16 +674,28 @@ async function pushSetPlan() {
       loadingPlan.value = false
       return
     }
+    if (!pageActive || !socketOpen.value || !socketJoined.value) {
+      pushLog('warn', 'setPlan', '连接已断开，取消下发')
+      return
+    }
     planIds.value = plan.map((p) => p.id)
     currentIndex.value = 0
     const mediaTok = getToken()
     const withVideo = plan.filter((p) => p.videoUrl).length
     const withImage = plan.filter((p) => p.imageUrl).length
-    sendCmd('setPlan', {
-      plan,
-      currentItemId: plan[0].id,
-      mediaBearerToken: mediaTok,
-    })
+    const sent = sendRaw({
+      type: 'command',
+      name: 'setPlan',
+      payload: {
+        plan,
+        currentItemId: plan[0].id,
+        mediaBearerToken: mediaTok,
+      },
+    }, { requireJoined: true })
+    if (!sent) {
+      uni.showToast({ title: '未连接大屏', icon: 'none' })
+      return
+    }
     pushLog('out', 'setPlan', `下发 ${plan.length} 项，视频 ${withVideo} / 图片 ${withImage}`, {
       currentItemId: plan[0].id,
       videoUrl: plan[0].videoUrl || '(无)',
@@ -557,7 +720,11 @@ function shiftItem(delta) {
 }
 
 function toggleVideo() {
-  sendCmd('toggleVideo')
+  const ok = sendRaw({ type: 'command', name: 'toggleVideo' }, { requireJoined: true })
+  if (!ok) {
+    uni.showToast({ title: '未连接大屏', icon: 'none' })
+    return
+  }
   videoPlaying.value = !videoPlaying.value
   pushLog('out', 'toggleVideo', videoPlaying.value ? '视频继续播放' : '视频已暂停')
 }
@@ -567,12 +734,14 @@ function endTraining() {
   sendCmd('setVideoPlaying', { playing: false })
 }
 
-onMounted(() => {
-  const pages = getCurrentPages()
-  const opts = pages[pages.length - 1]?.options || {}
+onLoad((opts) => {
   lessonId.value = parseInt(opts.lessonId, 10) || 0
   planId.value = parseInt(opts.planId, 10) || 0
-  planTitle.value = decodeURIComponent(opts.planTitle || '')
+  try {
+    planTitle.value = opts.planTitle ? decodeURIComponent(opts.planTitle) : ''
+  } catch {
+    planTitle.value = opts.planTitle || ''
+  }
 
   if (isH5Client() && (!planId.value || planId.value <= 0)) {
     uni.showToast({ title: '请从「选择训练计划」进入遥控', icon: 'none', duration: 2500 })
@@ -585,25 +754,31 @@ onMounted(() => {
   }
 
   loadRelayCredentials()
-  if (!uni.getStorageSync(RELAY_STORAGE_KEYS.roomId)) {
-    persistRelayCredentials()
-  }
-  uni.setNavigationBarTitle({ title: '大屏遥控' })
-  pushLog('info', 'INIT', `planId=${planId.value} ws=${relayWs.value} room=${roomId.value}`)
-  if (canAutoConnect()) {
-    setTimeout(() => {
-      if (canAutoConnect()) handleConnect()
-    }, 400)
-  }
-})
-
-onUnmounted(() => {
-  clearSocketListeners()
   try {
-    uni.closeSocket()
+    uni.removeStorageSync(RELAY_STORAGE_KEYS.roomId)
+    uni.removeStorageSync(RELAY_STORAGE_KEYS.token)
   } catch {
     /* noop */
   }
+  uni.setNavigationBarTitle({ title: '大屏遥控' })
+  pushLog('info', 'INIT', `planId=${planId.value} ws=${relayWs.value} room=${roomId.value}`)
+})
+
+onReady(() => {
+  if (canAutoConnect()) {
+    setTimeout(() => {
+      if (canAutoConnect()) handleConnect()
+    }, 300)
+  }
+})
+
+onUnload(() => {
+  pageActive = false
+  connectSeq++
+  closeSocketTask()
+  socketOpen.value = false
+  socketJoined.value = false
+  connecting.value = false
 })
 </script>
 
@@ -692,6 +867,72 @@ onUnmounted(() => {
   color: #666;
   margin-bottom: 40rpx;
   text-align: center;
+}
+
+.conn-form {
+  width: 100%;
+  margin-bottom: 32rpx;
+  padding: 24rpx;
+  background: #f8fafc;
+  border-radius: 16rpx;
+  border: 1px solid #e2e8f0;
+}
+
+.conn-form-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8rpx;
+}
+
+.conn-form-hint {
+  display: block;
+  font-size: 24rpx;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 16rpx;
+}
+
+.conn-field {
+  margin-bottom: 12rpx;
+}
+
+.conn-label {
+  display: block;
+  font-size: 24rpx;
+  color: #64748b;
+  margin-bottom: 8rpx;
+}
+
+.conn-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12rpx;
+  box-sizing: border-box;
+}
+
+.conn-meta {
+  font-size: 24rpx;
+  color: #475569;
+  margin-bottom: 12rpx;
+}
+
+.conn-probe {
+  font-size: 22rpx;
+  color: #059669;
+  line-height: 1.4;
+  margin-bottom: 12rpx;
+  word-break: break-all;
+}
+
+.conn-quick {
+  display: flex;
+  gap: 16rpx;
 }
 
 .btn-connect {

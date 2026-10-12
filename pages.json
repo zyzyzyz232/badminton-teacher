@@ -49,7 +49,7 @@
 		{
 			"path": "pages/exam-active/exam-active",
 			"style": {
-				"navigationBarTitleText": "考核识别",
+				"navigationBarTitleText": "动作分析",
 				"navigationBarBackgroundColor": "#07c160",
 				"navigationBarTextStyle": "white"
 			}
@@ -71,17 +71,33 @@
 			}
 		},
 		{
-			"path": "pages/exam-items/exam-items",
+			"path": "pages/exam-item-edit/exam-item-edit",
 			"style": {
-				"navigationBarTitleText": "考核项",
+				"navigationBarTitleText": "编辑考核项",
 				"navigationBarBackgroundColor": "#07c160",
 				"navigationBarTextStyle": "white"
 			}
 		},
 		{
-			"path": "pages/exam-item-edit/exam-item-edit",
+			"path": "pages/exam-room/exam-room",
 			"style": {
-				"navigationBarTitleText": "编辑考核项",
+				"navigationBarTitleText": "考场",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-results/exam-results",
+			"style": {
+				"navigationBarTitleText": "考试结果",
+				"navigationBarBackgroundColor": "#07c160",
+				"navigationBarTextStyle": "white"
+			}
+		},
+		{
+			"path": "pages/exam-result-detail/exam-result-detail",
+			"style": {
+				"navigationBarTitleText": "成绩详情",
 				"navigationBarBackgroundColor": "#07c160",
 				"navigationBarTextStyle": "white"
 			}
@@ -219,6 +235,12 @@
 			{
 				"pagePath": "pages/training-plan/training-plan",
 				"text": "训练计划",
+				"iconPath": "static/tabbar/list.png",
+				"selectedIconPath": "static/tabbar/list-active.png"
+			},
+			{
+				"pagePath": "pages/exam-results/exam-results",
+				"text": "考试结果",
 				"iconPath": "static/tabbar/list.png",
 				"selectedIconPath": "static/tabbar/list-active.png"
 			},

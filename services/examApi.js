@@ -1,12 +1,14 @@
-/**
- * 考试模式阶段一 API（admin-api）
+﻿/**
+ * 考试模式 API（admin-api）
  *
- * 考试 CRUD 打本地旁路 48081；登录/课程/课堂/文件上传走现网 48080。
- * 资料文件与教学模式相同：POST /teaching/plan-material/upload，落到 pic-video。
+ * 考试 CRUD / 成绩闭环打本地旁路 48081；登录/课程/课堂/名册走现网 48080。
+ * 考核资料文件优先现网 pic-video；成绩视频只走旁路本地盘。
  * 本机 IP 若变化，只改 TEACHING_API_BASE。
  */
 
-const LIVE_API_BASE = 'http://10.112.189.54:48080/admin-api'
+import { ensureTeacherSession } from './userProfile.js'
+
+const LIVE_API_BASE = 'http://10.112.149.184:48080/admin-api'
 const TEACHING_API_BASE = 'http://10.29.108.157:48081/admin-api'
 
 function getToken() {
@@ -162,9 +164,10 @@ export function resolveExamId(row) {
 	return Number.isFinite(n) ? n : 0
 }
 
+/** 课堂行用 id；考试行必须优先 lessonId，否则会误用考试 id */
 export function resolveLessonId(row) {
 	if (!row) return 0
-	const v = row.id ?? row.lessonId
+	const v = row.lessonId ?? row.lesson_id ?? row.id
 	const n = typeof v === 'number' ? v : parseInt(String(v), 10)
 	return Number.isFinite(n) ? n : 0
 }
@@ -331,20 +334,54 @@ function toMaterialUrls(row, materialType) {
 }
 
 function parseUploadResponse(res) {
-	const raw = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+	const status = Number(res && res.statusCode)
+	const body = res && res.data
+	if (status && (status < 200 || status >= 300)) {
+		throw new Error(`上传失败(${status})`)
+	}
+	let raw = body
+	if (typeof body === 'string') {
+		const text = body.trim()
+		if (!text) {
+			throw new Error('上传返回空响应')
+		}
+		try {
+			raw = JSON.parse(text)
+		} catch (e) {
+			throw new Error(text.slice(0, 80) || '解析上传结果失败')
+		}
+	}
 	if (raw && typeof raw.code === 'number' && raw.code !== 0) {
 		throw new Error(formatExamApiError(raw))
 	}
 	return raw && raw.data !== undefined ? raw.data : raw
 }
 
+function uploadFailMessage(err) {
+	if (!err) return '网络错误'
+	if (typeof err === 'string') return err
+	const msg = err.errMsg || err.message || err.msg || ''
+	if (msg) return msg
+	try {
+		const text = JSON.stringify(err)
+		return text && text !== '{}' ? text : '网络错误'
+	} catch {
+		return '网络错误'
+	}
+}
+
 function uniUploadFile(url, filePath, formData) {
 	return new Promise((resolve, reject) => {
+		const header = {
+			Authorization: `Bearer ${getToken()}`,
+			'Tenant-Id': '1',
+		}
 		uni.uploadFile({
 			url,
 			filePath,
 			name: 'file',
-			header: authHeaders(),
+			timeout: 180000,
+			header,
 			formData,
 			success: (res) => {
 				try {
@@ -354,10 +391,7 @@ function uniUploadFile(url, filePath, formData) {
 				}
 			},
 			fail: (err) => {
-				const msg =
-					(err && (err.errMsg || err.message)) ||
-					(typeof err === 'string' ? err : '网络错误')
-				reject(new Error(msg))
+				reject(new Error(uploadFailMessage(err)))
 			},
 		})
 	})
@@ -496,7 +530,13 @@ export async function fetchLessonsByCourse(courseId, opts = {}) {
 	if (typeFilter == null) return list
 	return list.filter((row) => {
 		const t = Number(row.type ?? row.lessonType)
-		return t === Number(typeFilter)
+		if (t === Number(typeFilter)) return true
+		// 考试课堂：兼容旧数据 type=11（picker 字符串拼接）以及 typeText
+		if (Number(typeFilter) === 2) {
+			if (t === 11) return true
+			return String(row.typeText || '').includes('考试')
+		}
+		return false
 	})
 }
 
@@ -520,6 +560,176 @@ export async function validateExamReadyForRoom(examId) {
 		}
 	}
 	return { ok: true, items }
+}
+
+export async function fetchClassStudents(classId) {
+	const data = await teachingGet(
+		'/teaching/class-student/list-by-class',
+		{ classId },
+		LIVE_API_BASE
+	)
+	return Array.isArray(data) ? data : asList(data)
+}
+
+function pickExamItemMaterial(materials) {
+	const list = asList(materials)
+		.slice()
+		.sort((a, b) => Number(a.sort ?? a.sortOrder ?? 0) - Number(b.sort ?? b.sortOrder ?? 0))
+	const video = list.find((m) => {
+		const type = Number(m.materialType)
+		const url = m.videoUrl || (type === 2 ? m.url || m.fileUrl : '')
+		return typeof url === 'string' && url
+	})
+	const image = list.find((m) => {
+		const type = Number(m.materialType)
+		const url = m.imageUrl || (type === 1 ? m.url || m.fileUrl : '')
+		return typeof url === 'string' && url
+	})
+	return { video, image, first: video || image || list[0] || null }
+}
+
+/**
+ * 组装 setExamBriefing 的 items：每项取第一条视频，否则第一条图片。
+ * @param {number|string} examId
+ */
+export async function buildExamBriefingItems(examId) {
+	const itemsRaw = await fetchExamItemListByExam(examId)
+	const items = Array.isArray(itemsRaw) ? itemsRaw : asList(itemsRaw)
+	const sorted = items.slice().sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
+	return Promise.all(
+		sorted.map(async (row) => {
+			const idNum = resolveExamItemId(row)
+			const id = idNum ? String(idNum) : ''
+			let materials = []
+			if (idNum) {
+				try {
+					materials = await fetchExamItemMaterialList(idNum)
+				} catch {
+					materials = []
+				}
+			}
+			const picked = pickExamItemMaterial(materials)
+			const videoUrl =
+				(picked.video && (picked.video.videoUrl || picked.video.url || picked.video.fileUrl)) || ''
+			const imageUrl =
+				(picked.image && (picked.image.imageUrl || picked.image.url || picked.image.fileUrl)) || ''
+			const descSource = picked.video || picked.image || picked.first || {}
+			const instruction =
+				typeof descSource.description === 'string' && descSource.description.trim()
+					? descSource.description.trim()
+					: ''
+			const view = {
+				id,
+				title: row.itemName || `考核项${id}`,
+			}
+			const maxScore = Number(row.maxScore)
+			if (Number.isFinite(maxScore)) view.maxScore = maxScore
+			const weight = Number(row.weight)
+			if (Number.isFinite(weight)) view.weight = weight
+			const algoType = Number(row.algoType)
+			if (Number.isFinite(algoType)) view.algoType = algoType
+			if (videoUrl) view.videoUrl = videoUrl
+			if (imageUrl) view.imageUrl = imageUrl
+			if (instruction) view.instruction = instruction
+			return view
+		})
+	)
+}
+
+export function mapClassStudentToExaminee(row) {
+	if (!row || typeof row !== 'object') return null
+	const classStudentId = String(row.id ?? row.classStudentId ?? '').trim()
+	if (!classStudentId) return null
+	const item = {
+		classStudentId,
+		name: row.studentName || row.name || '未命名',
+		status: 'waiting',
+	}
+	if (row.userId != null && row.userId !== '') item.userId = String(row.userId)
+	if (row.studentNo) item.studentNo = String(row.studentNo)
+	return item
+}
+
+export const EXAM_RESULTS_STORAGE_KEYS = {
+	courseId: 'examResultsCourseId',
+	examId: 'examResultsExamId',
+	classId: 'examResultsClassId',
+}
+
+export function examScoreStatusText(status) {
+	const map = {
+		0: '未考',
+		1: '计算中',
+		2: '待审核',
+		3: '已完成',
+		4: '失败',
+		5: '缺考',
+	}
+	return map[Number(status)] || '未考'
+}
+
+export async function fetchTeacherCourses() {
+	const { teacherId } = await ensureTeacherSession()
+	const data = await teachingGet(
+		'/teaching/course/list-by-teacher',
+		{ teacherId },
+		LIVE_API_BASE
+	)
+	return Array.isArray(data) ? data : asList(data)
+}
+
+export async function fetchCourseClasses(courseId) {
+	const data = await teachingGet(
+		'/teaching/course/list-classes',
+		{ courseId },
+		LIVE_API_BASE
+	)
+	return Array.isArray(data) ? data : asList(data)
+}
+
+export function submitExamScoreVideo(opts) {
+	const formData = {
+		examId: String(opts.examId),
+		examItemId: String(opts.examItemId),
+		studentId: String(opts.studentId),
+	}
+	if (opts.classId != null && opts.classId !== '') formData.classId = String(opts.classId)
+	if (opts.videoDuration != null && opts.videoDuration !== '') {
+		formData.videoDuration = String(opts.videoDuration)
+	}
+	return uniUploadFile(
+		`${TEACHING_API_BASE}/teaching/exam-score/submit-video`,
+		opts.filePath,
+		formData
+	)
+}
+
+export function fetchExamScoreListByExam(examId) {
+	return teachingGet('/teaching/exam-score/list-by-exam', { examId })
+}
+
+export function fetchExamScoreGet(id) {
+	return teachingGet('/teaching/exam-score/get', { id })
+}
+
+export function reviewExamScore(body) {
+	return teachingJsonRequest('PUT', '/teaching/exam-score/review', body)
+}
+
+export function retryExamScore(id) {
+	return teachingJsonRequest(
+		'POST',
+		`/teaching/exam-score/retry?id=${encodeURIComponent(id)}`,
+		{}
+	)
+}
+
+export function markExamScoreAbsent(body) {
+	return teachingJsonRequest('POST', '/teaching/exam-score/mark-absent', body)
+}
+
+export function restartExamStudent(body) {
+	return teachingJsonRequest('POST', '/teaching/exam-score/restart-student', body)
 }
 
 export { TEACHING_API_BASE, LIVE_API_BASE }

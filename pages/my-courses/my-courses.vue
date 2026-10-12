@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="我的课程" :show-back="false" />
 
@@ -74,19 +74,19 @@
           </view>
 
           <view class="form-item">
-            <text class="form-label">开始时间</text>
-            <picker mode="multiSelector" :range="timeRange" :value="startTimeIndex" @change="onStartTimeChange">
-              <view class="form-picker" :class="{ 'placeholder': !form.startTime }">
-                {{ form.startTime ? formatTimeDisplay(startTimeIndex) : '请选择开始时间' }}
+            <text class="form-label">开始星期</text>
+            <picker mode="selector" :range="weekDays" :value="startWeekPickerValue" @change="onStartWeekChange">
+              <view class="form-picker" :class="{ 'placeholder': startWeekIndex < 0 }">
+                {{ startWeekIndex >= 0 ? weekDays[startWeekIndex] : '请选择开始星期' }}
               </view>
             </picker>
           </view>
 
           <view class="form-item">
-            <text class="form-label">结束时间</text>
-            <picker mode="multiSelector" :range="timeRange" :value="endTimeIndex" @change="onEndTimeChange">
-              <view class="form-picker" :class="{ 'placeholder': !form.endTime }">
-                {{ form.endTime ? formatTimeDisplay(endTimeIndex) : '请选择结束时间' }}
+            <text class="form-label">结束星期</text>
+            <picker mode="selector" :range="weekDays" :value="endWeekPickerValue" @change="onEndWeekChange">
+              <view class="form-picker" :class="{ 'placeholder': endWeekIndex < 0 }">
+                {{ endWeekIndex >= 0 ? weekDays[endWeekIndex] : '请选择结束星期' }}
               </view>
             </picker>
           </view>
@@ -104,76 +104,39 @@
 <script setup>
 import { ensureTeacherSession } from '../../services/userProfile.js';
 import { getTeacherIdFromStorage } from '../../services/trainingPlanApi.js';
-import { reactive, ref, onMounted } from 'vue';
+import { computed, reactive, ref, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
 // 接口基础地址
-const BASE_URL = "http://10.112.189.54:48080/admin-api";
+const BASE_URL = "http://10.112.149.184:48080/admin-api";
 
 // 数据定义
 const courseList = reactive([]);
 const showModal = ref(false);
 const semesterOptions = ['2024-2025学年第一学期', '2024-2025学年第二学期', '2025-2026学年第一学期'];
 
-// 时间选择器数据（周几 + 时 + 分）
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0') + '时');
-const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0') + '分');
-
-const timeRange = [weekDays, hours, minutes];
-const startTimeIndex = ref([0, 8, 0]); // 默认周一 8:00
-const endTimeIndex = ref([0, 9, 30]); // 默认周一 9:30
+const startWeekIndex = ref(-1);
+const endWeekIndex = ref(-1);
+const startWeekPickerValue = computed(() => (startWeekIndex.value < 0 ? 0 : startWeekIndex.value));
+const endWeekPickerValue = computed(() => (endWeekIndex.value < 0 ? 0 : endWeekIndex.value));
 
 // 表单数据
 const form = reactive({
   name: '',
   courseClass: '',
-  semester: '',
-  startTime: '',
-  endTime: ''
+  semester: ''
 });
 
-// 格式化时间显示（周几 时:分）
-const formatTimeDisplay = (value) => {
-  const weekDay = weekDays[value[0]];
-  const hour = hours[value[1]].replace('时', '');
-  const minute = minutes[value[2]].replace('分', '');
-  return `${weekDay} ${hour}:${minute}`;
-};
+function weekIndexFromPicker(raw) {
+  const idx = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isInteger(idx) && idx >= 0 && idx < weekDays.length ? idx : -1;
+}
 
-// 把时间值转换为具体日期（基于当前日期计算）
-const convertToDateTime = (value) => {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
-  const currentDay = now.getDay(); // 0=周日, 1=周一...
-
-  // 将周日(0)转为7，方便计算
-  const adjustedCurrentDay = currentDay === 0 ? 7 : currentDay;
-
-  // 目标星期几（1-7，周一到周日）
-  const targetDay = value[0] + 1;
-
-  // 计算差值（天数）
-  let diff = targetDay - adjustedCurrentDay;
-
-  // 如果已经过了本周的目标时间，默认选下周
-  if (diff < 0) {
-    diff += 7;
-  }
-
-  // 计算目标日期
-  const targetDate = new Date(currentYear, currentMonth, currentDate + diff);
-
-  const year = targetDate.getFullYear();
-  const month = (targetDate.getMonth() + 1).toString().padStart(2, '0');
-  const day = targetDate.getDate().toString().padStart(2, '0');
-  const hour = hours[value[1]].replace('时', '');
-  const minute = minutes[value[2]].replace('分', '');
-
-  return `${year}-${month}-${day} ${hour}:${minute}:00`;
-};
+/** 上课星期模板：同一天为「周一」，跨天为「周一/周二/周三」，不含钟点。 */
+function buildCourseTime(startIdx, endIdx) {
+  return weekDays.slice(startIdx, endIdx + 1).join('/');
+}
 
 // 获取课程列表
 const getCourseList = async () => {
@@ -245,11 +208,8 @@ const showCreateModal = () => {
   form.name = '';
   form.courseClass = '';
   form.semester = '';
-  form.startTime = '';
-  form.endTime = '';
-  // 默认设置为周一 8:00 - 9:30
-  startTimeIndex.value = [0, 8, 0];
-  endTimeIndex.value = [0, 9, 30];
+  startWeekIndex.value = -1;
+  endWeekIndex.value = -1;
   showModal.value = true;
 };
 
@@ -263,16 +223,12 @@ const onSemesterChange = (e) => {
   form.semester = semesterOptions[e.detail.value];
 };
 
-// 开始时间选择
-const onStartTimeChange = (e) => {
-  startTimeIndex.value = e.detail.value;
-  form.startTime = convertToDateTime(e.detail.value);
+const onStartWeekChange = (e) => {
+  startWeekIndex.value = weekIndexFromPicker(e.detail.value);
 };
 
-// 结束时间选择
-const onEndTimeChange = (e) => {
-  endTimeIndex.value = e.detail.value;
-  form.endTime = convertToDateTime(e.detail.value);
+const onEndWeekChange = (e) => {
+  endWeekIndex.value = weekIndexFromPicker(e.detail.value);
 };
 
 // 创建课程
@@ -289,12 +245,16 @@ const createCourse = () => {
     uni.showToast({ title: '请选择学期', icon: 'none' });
     return;
   }
-  if (!form.startTime) {
-    uni.showToast({ title: '请选择开始时间', icon: 'none' });
+  if (startWeekIndex.value < 0) {
+    uni.showToast({ title: '请选择开始星期', icon: 'none' });
     return;
   }
-  if (!form.endTime) {
-    uni.showToast({ title: '请选择结束时间', icon: 'none' });
+  if (endWeekIndex.value < 0) {
+    uni.showToast({ title: '请选择结束星期', icon: 'none' });
+    return;
+  }
+  if (endWeekIndex.value < startWeekIndex.value) {
+    uni.showToast({ title: '结束星期不能早于开始星期', icon: 'none' });
     return;
   }
 
@@ -305,8 +265,7 @@ const createCourse = () => {
     return;
   }
 
-  // 组合课程时间显示
-  const courseTime = `${form.startTime} 至 ${form.endTime}`;
+  const courseTime = buildCourseTime(startWeekIndex.value, endWeekIndex.value);
 
   uni.showLoading({ title: '创建中...' });
 

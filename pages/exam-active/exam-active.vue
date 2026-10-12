@@ -1,14 +1,10 @@
 <template>
   <view class="page-container">
-    <page-nav-bar title="考核识别" />
+    <page-nav-bar title="动作分析" />
     <view class="top-card">
       <view class="info-row">
         <text class="label">班级</text>
         <text class="value">{{ className || '--' }}</text>
-      </view>
-      <view class="info-row">
-        <text class="label">场地</text>
-        <text class="value">{{ venueDisplayText }}</text>
       </view>
       <view class="info-row">
         <text class="label">学员</text>
@@ -20,36 +16,47 @@
       </view>
       <view class="info-row">
         <text class="label">考核项目</text>
-        <text class="value">{{ examTypeLabel }}</text>
+        <text class="value">{{ itemName || examTypeLabel }}</text>
+      </view>
+      <view v-if="taskStatusText" class="info-row">
+        <text class="label">任务状态</text>
+        <text class="value">{{ taskStatusText }}</text>
       </view>
     </view>
 
     <view class="preview-reserved">
-      <text class="preview-title">预览与识别区域</text>
-      <text class="preview-desc">场地视频流、落点或动作结果将在此展示（待接入）</text>
-      <text v-if="lastRequestId" class="preview-request-id">任务ID：{{ lastRequestId }}</text>
-      <text v-if="lastTaskStatus" class="preview-task-status">任务状态：{{ lastTaskStatus }}</text>
+      <text class="preview-title">{{ isActionAnalysis ? '动作分析录像' : '预览与识别区域' }}</text>
+      <text class="preview-desc">{{ previewDesc }}</text>
     </view>
 
     <view class="bottom-actions">
-      <view class="btn-row">
-        <view
-          v-if="isActionRecognition"
-          class="btn btn-upload-test"
-          :class="{ 'btn--disabled': isRecognizing }"
-          @click="onUploadAndRecognizeTest"
-        >
-          <text>{{ isRecognizing ? '上传中…' : '测试上传识别' }}</text>
-        </view>
+      <view v-if="isActionAnalysis && paramsReady" class="btn-row">
         <view
           class="btn btn-start"
-          :class="{ 'btn--disabled': isRecognizing }"
-          @click="onStartRecognize"
+          :class="{ 'btn--disabled': busy }"
+          @click="onStartRecord"
         >
-          <text>{{ isRecognizing ? '识别中…' : '开始识别' }}</text>
+          <text>{{ busy ? '处理中…' : '开始录像' }}</text>
         </view>
-        <view class="btn btn-stop" @click="onStopRecognize">
-          <text>结束识别</text>
+        <view
+          class="btn btn-upload-test"
+          :class="{ 'btn--disabled': busy }"
+          @click="onUploadFromAlbum"
+        >
+          <text>{{ busy ? '处理中…' : '本地上传' }}</text>
+        </view>
+      </view>
+      <view v-else class="btn-row">
+        <view class="btn btn-start" @click="onStartLandingPlaceholder">
+          <text>开始识别</text>
+        </view>
+      </view>
+      <view v-if="scoreId && Number(taskStatus) === 2" class="btn-row extra">
+        <view class="btn btn-start" @click="goDetail">查看并改分</view>
+      </view>
+      <view v-if="scoreId && Number(taskStatus) === 4" class="btn-row extra">
+        <view class="btn btn-upload-test" :class="{ 'btn--disabled': busy }" @click="onRetry">
+          <text>失败重试</text>
         </view>
       </view>
     </view>
@@ -57,181 +64,271 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
-import { startRecognition, stopRecognition } from '../../services/examRecognition.js';
+import { ref, computed } from 'vue'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import {
+  submitExamScoreVideo,
+  fetchExamScoreGet,
+  retryExamScore,
+  examScoreStatusText,
+} from '../../services/examApi.js'
 
-const courseId = ref(0);
-const classId = ref(0);
-const className = ref('');
-const venueId = ref('');
-const venueLineFromQuery = ref('');
-const examType = ref('');
-const classStudentId = ref(0);
-const studentName = ref('');
-const studentNo = ref('');
-const userId = ref('');
-const lessonId = ref(0);
+const examId = ref(0)
+const examItemId = ref(0)
+const classId = ref(0)
+const className = ref('')
+const examType = ref('')
+const itemName = ref('')
+const classStudentId = ref('')
+const studentId = ref('')
+const studentName = ref('')
+const studentNo = ref('')
+const isUploading = ref(false)
+const scoreId = ref(0)
+const taskStatus = ref(null)
+const taskStatusText = ref('')
+let pollTimer = null
 
-const isRecognizing = ref(false);
-const sessionId = ref(null);
-const hasShownDevTip = ref(false);
-const lastRequestId = ref('');
-const lastTaskStatus = ref('');
-
-const isActionRecognition = computed(() => examType.value === 'action_recognition');
+const busy = computed(() => isUploading.value)
+const isActionAnalysis = computed(() => examType.value === 'action_recognition')
+const paramsReady = computed(
+  () =>
+    !!examId.value &&
+    !!examItemId.value &&
+    !!studentId.value &&
+    isActionAnalysis.value,
+)
 
 const examTypeLabel = computed(() => {
-  if (examType.value === 'landing') return '落点检测';
-  if (examType.value === 'action_recognition') return '动作识别';
-  return examType.value || '--';
-});
+  if (examType.value === 'landing') return '落点检测'
+  if (examType.value === 'action_recognition') return '动作分析'
+  return examType.value || '--'
+})
 
-const venueDisplayText = computed(() => {
-  if (venueLineFromQuery.value) return venueLineFromQuery.value;
-  const n = venueId.value;
-  return n ? `${n}号场地` : '--';
-});
+const previewDesc = computed(() => {
+  if (!isActionAnalysis.value) return '落点检测暂未开放'
+  if (!paramsReady.value) return '缺少考试或学员参数，请从考场进入'
+  if (Number(taskStatus.value) === 1) return '视频已提交，正在计算中…'
+  if (Number(taskStatus.value) === 2) return '计算完成，可查看 AI 初分并改最终分'
+  if (Number(taskStatus.value) === 4) return '分析失败，可重试或重新上传'
+  return '点击开始录像调用手机摄像头，结束后提交到后台分析。本地上传仅用于调试。'
+})
 
 function decodeParam(raw) {
-  if (!raw) return '';
+  if (!raw) return ''
   try {
-    return decodeURIComponent(raw);
+    return decodeURIComponent(raw)
   } catch {
-    return raw;
+    return raw
   }
 }
 
-const onStartRecognize = async () => {
-  if (isRecognizing.value) return;
-  if (isActionRecognition.value) {
-    await onUploadAndRecognizeTest();
-    return;
-  }
-  if (!venueId.value) {
-    uni.showToast({ title: '缺少场地信息', icon: 'none' });
-    return;
-  }
-  uni.showLoading({ title: '启动中…', mask: true });
-  try {
-    const result = await startRecognition({
-      venueId: venueId.value,
-      examType: examType.value,
-      courseId: courseId.value,
-      classId: classId.value,
-      lessonId: lessonId.value,
-      classStudentId: classStudentId.value,
-      userId: userId.value
-    });
-    sessionId.value = result.localSessionId;
-    isRecognizing.value = true;
-    if (!hasShownDevTip.value) {
-      hasShownDevTip.value = true;
-      uni.showToast({ title: '识别服务开发中', icon: 'none' });
-    }
-  } catch (e) {
-    console.error(e);
-    uni.showToast({ title: '启动失败', icon: 'none' });
-  } finally {
-    uni.hideLoading();
-  }
-};
+function isChooseCancel(err) {
+  const msg = String((err && (err.errMsg || err.message)) || '')
+  return msg.includes('cancel') || msg.includes('取消')
+}
 
-const onUploadAndRecognizeTest = async () => {
-  if (isRecognizing.value) return;
-  if (!isActionRecognition.value) {
-    uni.showToast({ title: '当前不是动作识别项目', icon: 'none' });
-    return;
+function pickChosenVideo(res) {
+  const data = Array.isArray(res) ? res[1] || res[0] : res
+  if (!data || typeof data !== 'object') {
+    return { filePath: '', duration: null }
   }
-  let selectedFilePath = '';
+  const file = (Array.isArray(data.tempFiles) && data.tempFiles[0]) || data
+  const filePath =
+    data.tempFilePath ||
+    file.tempFilePath ||
+    file.path ||
+    (Array.isArray(data.tempFilePaths) && data.tempFilePaths[0]) ||
+    ''
+  const duration = data.duration != null ? data.duration : file.duration
+  return { filePath, duration }
+}
+
+function showUploadError(err) {
+  const title = (err && (err.message || err.errMsg)) || '上传失败'
+  setTimeout(() => {
+    if (title.length > 18) {
+      uni.showModal({ title: '上传失败', content: title, showCancel: false })
+    } else {
+      uni.showToast({ title, icon: 'none', duration: 2800 })
+    }
+  }, 80)
+}
+
+async function chooseVideo(sourceType, maxDuration) {
+  const albumOnly =
+    Array.isArray(sourceType) && sourceType.length === 1 && sourceType[0] === 'album'
+  // chooseVideo.maxDuration 上限 60；相册传 300 会立刻被微信拒绝并提示「上传视频失败」
+  if (albumOnly && typeof uni.chooseMedia === 'function') {
+    try {
+      const media = await uni.chooseMedia({
+        count: 1,
+        mediaType: ['video'],
+        sourceType: ['album'],
+      })
+      const picked = pickChosenVideo(media)
+      if (picked.filePath) return picked
+    } catch (e) {
+      if (isChooseCancel(e)) return { filePath: '', duration: null }
+    }
+  }
+  const duration = Math.min(60, Number(maxDuration) || 60)
   try {
     const chooseRes = await uni.chooseVideo({
-      sourceType: ['album'],
-      compressed: true,
-      maxDuration: 300
-    });
-    selectedFilePath = chooseRes?.tempFilePath || '';
+      sourceType: albumOnly ? ['album', 'camera'] : sourceType,
+      compressed: false,
+      maxDuration: duration,
+      camera: 'back',
+    })
+    return pickChosenVideo(chooseRes)
   } catch (e) {
-    if (e && (e.errMsg || '').includes('cancel')) return;
-    uni.showToast({ title: '选择视频失败', icon: 'none' });
-    return;
+    if (isChooseCancel(e)) return { filePath: '', duration: null }
+    showUploadError(e)
+    return { filePath: '', duration: null }
   }
-  if (!selectedFilePath) {
-    uni.showToast({ title: '未获取到视频文件', icon: 'none' });
-    return;
-  }
-  uni.showLoading({ title: '上传识别中…', mask: true });
-  isRecognizing.value = true;
-  try {
-    const result = await startRecognition({
-      venueId: venueId.value,
-      examType: examType.value,
-      courseId: courseId.value,
-      classId: classId.value,
-      lessonId: lessonId.value,
-      classStudentId: classStudentId.value,
-      userId: userId.value,
-      filePath: selectedFilePath
-    });
-    sessionId.value = result.localSessionId;
-    lastRequestId.value = result.requestId || '';
-    lastTaskStatus.value = result.status || '';
-    uni.showToast({ title: '已提交分析任务', icon: 'success' });
-  } catch (e) {
-    console.error(e);
-    const msg = e?.message || '上传识别失败';
-    uni.showToast({ title: msg, icon: 'none' });
-  } finally {
-    isRecognizing.value = false;
-    uni.hideLoading();
-  }
-};
+}
 
-const onStopRecognize = async () => {
-  uni.showLoading({ title: '结束中…', mask: true });
-  try {
-    await stopRecognition(sessionId.value);
-    sessionId.value = null;
-    isRecognizing.value = false;
-  } catch (e) {
-    console.error(e);
-    uni.showToast({ title: '结束失败', icon: 'none' });
-  } finally {
-    uni.hideLoading();
+function stopPoll() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
   }
-};
+}
+
+function startPoll() {
+  stopPoll()
+  pollTimer = setInterval(() => {
+    refreshTask(true)
+  }, 3000)
+}
+
+async function refreshTask(silent) {
+  if (!scoreId.value) return
+  try {
+    const data = await fetchExamScoreGet(scoreId.value)
+    taskStatus.value = data && data.status
+    taskStatusText.value = (data && data.statusText) || examScoreStatusText(data && data.status)
+    if (Number(taskStatus.value) !== 1) stopPoll()
+  } catch (e) {
+    if (!silent) uni.showToast({ title: e.message || '查询失败', icon: 'none' })
+  }
+}
+
+async function uploadVideo(filePath, duration) {
+  if (!filePath) {
+    uni.showToast({ title: '未获取到视频文件', icon: 'none' })
+    return
+  }
+  if (!paramsReady.value) {
+    uni.showToast({ title: '参数不完整，请从考场进入', icon: 'none' })
+    return
+  }
+  isUploading.value = true
+  uni.showLoading({ title: '上传中…', mask: true })
+  try {
+    const durationSec = Math.round(Number(duration))
+    const data = await submitExamScoreVideo({
+      filePath,
+      examId: examId.value,
+      examItemId: examItemId.value,
+      studentId: studentId.value,
+      classId: classId.value,
+      videoDuration: Number.isFinite(durationSec) ? durationSec : undefined,
+    })
+    scoreId.value = Number(data && (data.id || data.scoreId)) || 0
+    taskStatus.value = data && data.status != null ? data.status : 1
+    taskStatusText.value = (data && data.statusText) || examScoreStatusText(taskStatus.value)
+    uni.hideLoading()
+    setTimeout(() => {
+      uni.showToast({ title: '已提交，计算中', icon: 'none' })
+    }, 80)
+    if (scoreId.value) startPoll()
+  } catch (e) {
+    uni.hideLoading()
+    showUploadError(e)
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const onStartRecord = async () => {
+  if (busy.value) return
+  const picked = await chooseVideo(['camera'], 60)
+  if (!picked.filePath) return
+  await uploadVideo(picked.filePath, picked.duration)
+}
+
+const onUploadFromAlbum = async () => {
+  if (busy.value) return
+  const picked = await chooseVideo(['album'], 300)
+  if (!picked.filePath) return
+  await uploadVideo(picked.filePath, picked.duration)
+}
+
+const onStartLandingPlaceholder = () => {
+  uni.showToast({ title: '暂未开放', icon: 'none' })
+}
+
+function goDetail() {
+  if (!scoreId.value) return
+  uni.navigateTo({
+    url: `/pages/exam-result-detail/exam-result-detail?id=${scoreId.value}`,
+  })
+}
+
+async function onRetry() {
+  if (!scoreId.value || busy.value) return
+  isUploading.value = true
+  try {
+    await retryExamScore(scoreId.value)
+    taskStatus.value = 1
+    taskStatusText.value = '计算中'
+    startPoll()
+    uni.showToast({ title: '已重新入队', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: e.message || '重试失败', icon: 'none' })
+  } finally {
+    isUploading.value = false
+  }
+}
 
 onLoad((options) => {
-  options = options || {};
-  courseId.value = parseInt(options.courseId, 10) || 0;
-  classId.value = parseInt(options.classId, 10) || 0;
-  className.value = decodeParam(options.className || '');
-  venueId.value = decodeParam(options.venueId || '');
-  venueLineFromQuery.value = decodeParam(options.venueLabel || '');
-  examType.value = decodeParam(options.examType || '');
-  classStudentId.value = parseInt(options.classStudentId, 10) || 0;
-  studentName.value = decodeParam(options.studentName || '');
-  studentNo.value = decodeParam(options.studentNo || '');
-  userId.value =
-    options.userId != null && options.userId !== '' ? String(options.userId) : '';
-  lessonId.value = parseInt(options.lessonId, 10) || 0;
+  options = options || {}
+  examId.value = parseInt(options.examId, 10) || 0
+  examItemId.value = parseInt(options.examItemId, 10) || 0
+  classId.value = parseInt(options.classId, 10) || 0
+  className.value = decodeParam(options.className || '')
+  examType.value = decodeParam(options.examType || '')
+  itemName.value = decodeParam(options.itemName || '')
+  classStudentId.value =
+    options.classStudentId != null && options.classStudentId !== ''
+      ? String(options.classStudentId)
+      : ''
+  studentId.value =
+    options.userId != null && options.userId !== ''
+      ? String(options.userId)
+      : options.studentId != null
+        ? String(options.studentId)
+        : ''
+  studentName.value = decodeParam(options.studentName || '')
+  studentNo.value = decodeParam(options.studentNo || '')
 
-  uni.setNavigationBarTitle({
-    title: className.value ? `${className.value} · 考核` : '考核识别'
-  });
+  if (examType.value === 'landing' || Number(options.algoType) === 2) {
+    examType.value = 'landing'
+  }
 
   const requiredReady =
-    !!classId.value &&
-    !!courseId.value &&
-    !!lessonId.value &&
-    !!venueId.value &&
-    !!examType.value &&
-    !!classStudentId.value;
-  if (!requiredReady) {
-    uni.showToast({ title: '参数不完整，请返回重试', icon: 'none' });
-    return;
+    !!examId.value && !!examItemId.value && !!studentId.value && isActionAnalysis.value
+  if (examType.value === 'landing') {
+    uni.showToast({ title: '暂未开放', icon: 'none' })
+  } else if (!requiredReady) {
+    uni.showToast({ title: '参数不完整，请从考场进入', icon: 'none' })
   }
-});
+})
+
+onUnload(() => {
+  stopPoll()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -306,15 +403,6 @@ onLoad((options) => {
   line-height: 1.6;
 }
 
-.preview-request-id,
-.preview-task-status {
-  margin-top: 12rpx;
-  font-size: 22rpx;
-  color: #666;
-  text-align: center;
-  word-break: break-all;
-}
-
 .bottom-actions {
   position: fixed;
   left: 0;
@@ -327,6 +415,10 @@ onLoad((options) => {
 .btn-row {
   display: flex;
   gap: 20rpx;
+}
+
+.btn-row.extra {
+  margin-top: 16rpx;
 }
 
 .btn {
@@ -352,12 +444,6 @@ onLoad((options) => {
 .btn-start {
   background: linear-gradient(135deg, #07c160, #0ebf8c);
   color: #fff;
-}
-
-.btn-stop {
-  background: #fff;
-  color: #07c160;
-  border: 2rpx solid #07c160;
 }
 
 .btn-upload-test {

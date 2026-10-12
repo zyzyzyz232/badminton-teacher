@@ -7,6 +7,27 @@ export type PlanItem = {
   instruction?: string
 }
 
+export type ExamPhase = 'idle' | 'briefing' | 'running' | 'finished'
+
+export type ExamItemView = {
+  id: string
+  title: string
+  maxScore?: number
+  weight?: number
+  algoType?: number
+  videoUrl?: string
+  imageUrl?: string
+  instruction?: string
+}
+
+export type ExamineeView = {
+  classStudentId: string
+  userId?: string
+  name: string
+  studentNo?: string
+  status: 'waiting' | 'testing' | 'done' | 'absent'
+}
+
 export type SessionState = {
   plan: PlanItem[]
   currentItemId: string
@@ -22,4 +43,12 @@ export type SessionState = {
   mediaBearerToken?: string
   /** 与 admin-api 请求一致的租户 id */
   mediaTenantId?: string
+  mode: 'training' | 'exam'
+  examPhase: ExamPhase
+  examTitle?: string
+  examId?: string
+  examItems: ExamItemView[]
+  currentExamItemId: string
+  examinees: ExamineeView[]
+  currentExamineeId: string
 }

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="班级详情" />
     <!-- 顶部班级信息 -->
@@ -47,7 +47,7 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const BASE_URL = 'http://10.112.189.54:48080/admin-api';
+const BASE_URL = 'http://10.112.149.184:48080/admin-api';
 
 // 页面参数
 const courseId = ref(0);

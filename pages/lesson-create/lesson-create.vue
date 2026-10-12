@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="创建课堂" />
     <!-- 顶部区域 -->
@@ -65,7 +65,7 @@
 import { reactive, ref, onMounted } from 'vue';
 
 // 接口基础地址
-const BASE_URL = "http://10.112.189.54:48080/admin-api";
+const BASE_URL = "http://10.112.149.184:48080/admin-api";
 
 // 页面参数
 const courseId = ref(0);

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="个人中心" :show-back="false" />
     <view class="top-bg">
@@ -101,7 +101,7 @@ import { reactive, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
 // 接口基础地址
-const BASE_URL = "http://10.112.189.54:48080/admin-api";
+const BASE_URL = "http://10.112.149.184:48080/admin-api";
 
 // --- 数据定义 ---
 const userInfo = reactive({

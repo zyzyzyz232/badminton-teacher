@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <page-nav-bar title="考核进行中" />
     <view class="top-bg">
@@ -60,7 +60,7 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const BASE_URL = 'http://10.112.189.54:48080/admin-api';
+const BASE_URL = 'http://10.112.149.184:48080/admin-api';
 
 const courseId = ref(0);
 const classId = ref(0);
@@ -78,7 +78,7 @@ const selectedUserId = ref(null);
 
 const examTypeLabel = computed(() => {
   if (examType.value === 'landing') return '落点检测';
-  if (examType.value === 'action_recognition') return '动作识别';
+  if (examType.value === 'action_recognition') return '动作分析';
   return examType.value || '--';
 });
 
